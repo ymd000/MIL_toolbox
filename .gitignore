@@ -1,0 +1,14 @@
+### white style
+/*
+
+### track file or folder
+
+# src
+!/src/
+!/src/*
+/src/**/__pycache__/**
+
+# setting
+!pyproject.toml
+!.gitignore
+

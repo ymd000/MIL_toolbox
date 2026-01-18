@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mil_toolbox"]
+
+[tool.uv.sources]
+mil-lab = { git = "ssh://git@github.com/ymd000/MIL-Lab.git" }
+
+[project]
+name = "mil_toolbox_ymd000"
+version = "0.0.1"
+authors = [
+  { name="ymd000", email="a.yamada18318@gmail.com" },
+]
+description = "MIL trainer & attention visualizer"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+dependencies = [
+    "lightning>=2.6.0",
+    "mil-lab",
+    "torch>=2.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ymd000/MIL_toolbox"
+Issues = "https://github.com/ymd000/MIL_toolbox/issues"
