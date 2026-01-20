@@ -16,7 +16,6 @@ class MILtrainer(L.LightningModule):
             model_config: str = model_config,
             **model_kwargs
         ):
-        
         super().__init__()
         
         # Create model        
@@ -30,7 +29,6 @@ class MILtrainer(L.LightningModule):
         return logits
 
     def training_step(self, batch, batch_idx):
-        # It is independent of forward
         x, y = batch
         logits = self(x)
         loss = self.loss_fn(logits, y)
@@ -47,6 +45,7 @@ def main():
     print(trainer.model)
     logits = trainer(test_embedding)
     print(logits.shape)
+    print(logits)
 
 if __name__ == "__main__":
     main()
