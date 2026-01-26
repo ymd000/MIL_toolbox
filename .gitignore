@@ -8,6 +8,10 @@
 !/src/*
 /src/**/__pycache__/**
 
+# test
+!/test
+!/test/*
+
 # setting
 !pyproject.toml
 !.gitignore
