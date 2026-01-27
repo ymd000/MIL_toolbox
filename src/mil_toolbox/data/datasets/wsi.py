@@ -42,36 +42,8 @@ class WSIDataset(Dataset):
         
         with h5py.File(h5_path, 'r') as f:
             # HDF5ファイルの構造に応じて適切なキーを指定
-            # 一般的なキー名: 'features', 'embeddings', 'coords' など
-            # 実際のキー名を確認してください
-            if 'features' in f.keys():
-                embeddings = f['features'][:]
-            elif 'embeddings' in f.keys():
-                embeddings = f['embeddings'][:]
-            else:
-                # 最初のデータセットを使用
-                key = list(f.keys())[0]
-                embeddings = f[key][:]
-            
-            # numpy配列をPyTorchテンソルに変換
+            embeddings = f['features'][:]
             embeddings = torch.from_numpy(embeddings).float()
         
         return embeddings, label
 
-class DummyWSIDataset(Dataset):
-    def __init__(self, num_wsi=10):
-        self.data = []
-        self.labels = []
-        for i in range(num_wsi):
-            num_patches = np.random.randint(50, 501)
-            wsi = torch.randn(num_patches, 1024)
-            label = np.random.randint(0, 2)
-
-            self.data.append(wsi)
-            self.labels.append(label)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return self.data[idx], self.labels[idx]
