@@ -21,8 +21,9 @@ class WSIDataset(Dataset):
                 file_path = os.path.join(data_dir, file)
                 file_name = os.path.splitext(file)[0]
                 self.h5_files.append(file_path)
-                
- 
+
+                # label_dictからラベルを取得（存在しない場合は-1）
+                label = label_dict.get(file_name, -1)
                 self.labels.append(label)
     
     def __len__(self):
