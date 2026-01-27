@@ -11,6 +11,7 @@
 # test
 !/test/
 !/test/*
+/test/__pycache__/**
 
 # setting
 !pyproject.toml
