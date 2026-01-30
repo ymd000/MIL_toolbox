@@ -6,14 +6,16 @@
 # src
 !/src/
 !/src/*
-/src/**/__pycache__/**
 
 # test
 !/test/
 !/test/*
-/test/__pycache__/**
 
 # setting
 !pyproject.toml
 !.gitignore
 
+# ignore __pycache__
+__pycache__/
+*.pyc
+*.pyo
