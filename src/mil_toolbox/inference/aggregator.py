@@ -1,6 +1,8 @@
 import torch
 from typing import List, Optional
 
+import umap
+
 from mil_toolbox.data import FoldManager
 
 
@@ -46,49 +48,27 @@ class AttentionAggregator:
         model.eval()
         return model
 
-    def predict_with_attention(self, x: torch.Tensor, fold_idx: Optional[int] = None):
+    def predict_with_attention(self, x: torch.Tensor, fold_idx: Optional[int]):
         """単一サンプルに対してlogitsとattentionを取得"""
         x = x.to(self.device)
         if x.dim() == 2:
             x = x.unsqueeze(0)
 
-        if fold_idx is not None:
-            return self._predict_single_model(x, self.models[fold_idx])
-        else:
-            return self._predict_ensemble(x)
+        return self._predict_single_model(x, self.models[fold_idx])
 
     def _predict_single_model(self, x: torch.Tensor, model):
         with torch.no_grad():
             outputs = model(x)
             logits = outputs['logits']
-            attention = outputs.get('attention', None)
-            probs = torch.softmax(logits, dim=-1)
+            attention = outputs.get('attention', None).squeeze()
+            probs = torch.softmax(logits, dim=-1).squeeze()
+
+            patch_embeddings = x.squeeze(0)
+            slide_embedding = torch.matmul(attention, patch_embeddings)
 
         return {
             'logits': logits.cpu(),
             'attention': attention.cpu() if attention is not None else None,
-            'probs': probs.cpu()
-        }
-
-    def _predict_ensemble(self, x: torch.Tensor):
-        """全foldモデルでアンサンブル予測"""
-        all_logits = []
-        all_attentions = []
-        all_probs = []
-
-        for model in self.models:
-            result = self._predict_single_model(x, model)
-            all_logits.append(result['logits'])
-            all_probs.append(result['probs'])
-            if result['attention'] is not None:
-                all_attentions.append(result['attention'])
-
-        mean_logits = torch.stack(all_logits).mean(dim=0)
-        mean_probs = torch.stack(all_probs).mean(dim=0)
-        mean_attention = torch.stack(all_attentions).mean(dim=0) if all_attentions else None
-
-        return {
-            'logits': mean_logits,
-            'attention': mean_attention,
-            'probs': mean_probs,
+            'probs': probs.cpu(),
+            'slide_embedding': slide_embedding.cpu()
         }
