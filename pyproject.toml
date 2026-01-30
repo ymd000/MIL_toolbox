@@ -25,11 +25,13 @@ license = "MIT"
 license-files = ["LICEN[CS]E*"]
 dependencies = [
     "lightning>=2.6.0",
+    "matplotlib>=3.9.4",
     "mil-lab",
     "numpy>=1.26.4",
     "scikit-learn>=1.5.2",
     "tensorboard>=2.20.0",
     "torch>=2.8.0",
+    "umap-learn>=0.5.7",
 ]
 
 [project.urls]
