@@ -3,11 +3,15 @@ from mil_toolbox.models import MILModel
 from mil_toolbox.train import CrossValidationTrainer
 from mil_toolbox.inference import AttentionAggregator
 
+import os
 import numpy as np
 import umap
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 def main():
+    output_dir = 'image'
+    os.makedirs(output_dir, exist_ok=True)
+
     dataset = DummyWSIDataset(num_wsi=100)
     print("Dataset created:")
 
@@ -82,27 +86,19 @@ def main():
     umap_model = umap.UMAP(n_components=2, n_neighbors=10, min_dist=0.3, random_state=42)
     slide_umap = umap_model.fit_transform(slide_embeddings)
     
-    plt.figure(figsize=(10, 8))
-    for i, label in enumerate(unique_labels):
-        mask = labels == label
-        plt.scatter(
-            slide_umap[mask, 0],
-            slide_umap[mask, 1],
-            c=[colors[i]],
-            label=f'Class {label}',
-            s=50,
-            alpha=0.7,
-            edgecolors='black',
-            linewidth=0.5
-        )
-    plt.xlabel('UMAP 1')
-    plt.ylabel('UMAP 2')
-    plt.title('UMAP Projection of Slide Embeddings')
+    plt.figure(figsize=(10, 10))
+
+    for i in range(2):
+        indices = labels == i
+        plt.scatter(slide_umap[indices, 0], slide_umap[indices, 1], label=str(i), alpha=0.7)
+
     plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
-    
+    plt.title("UMAP Visualization")
+    plt.xlabel("UMAP Dimension 1")
+    plt.ylabel("UMAP Dimension 2")
+    plt.grid(True)
+    plt.savefig("image/umap.png")
+
     print("\nDone.")
 
 
