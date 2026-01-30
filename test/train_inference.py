@@ -3,6 +3,9 @@ from mil_toolbox.models import MILModel
 from mil_toolbox.train import CrossValidationTrainer
 from mil_toolbox.inference import AttentionAggregator
 
+import numpy as np
+import umap
+import matplotlib as plt
 
 def main():
     dataset = DummyWSIDataset(num_wsi=100)
@@ -22,6 +25,7 @@ def main():
 
     num_fold = 5
 
+    """
     print("\n" + "=" * 50)
     print("Train with CrossValidationTrainer")
     print("=" * 50)
@@ -34,6 +38,7 @@ def main():
         output_dir="./outputs"
     )
     trainer.run()
+    """
         
     print("\n" + "=" * 50)
     print("Inference Test with AttentionAggregator")
@@ -48,21 +53,56 @@ def main():
 
     aggregator.load_models(checkpoint_name="best")
 
+    slide_embeddings = []
+    labels = []
+
     for fold_idx in range(num_fold):
         fold_info = aggregator.fold_manager.get_fold(fold_idx)
         print(f"\n--- Fold {fold_idx} ---")
-        print(f"Val indices: {fold_info.val_indices[:5]}...")  # 最初の5つ
+        print(f"Val indices: {fold_info.val_indices[:5]}...")
 
-        for idx in fold_info.val_indices[:3]:  # 各foldから3サンプル
+        for idx in fold_info.val_indices:
             x, label = dataset[idx]
             result = aggregator.predict_with_attention(x, fold_idx)
-            probs = result['probs'].squeeze()
+            probs = result['probs']
             pred_class = probs.argmax().item()
             pred_prob = probs[pred_class].item()
             att = result['attention']
-            att_info = f"shape={att.squeeze().shape}" if att is not None else "None"
-            print(f"  Sample {idx}: label={label}, pred={pred_class}, prob={pred_prob:.4f}, attention {att_info}")
+            att_info = f"shape={att.shape}" if att is not None else "None"
+            s_e = result['slide_embedding'] 
+            print(f"  Sample {idx}: label={label}, pred={pred_class}, prob={pred_prob:.4f}, attention {att_info}, slide embedding shape={s_e.shape}")
 
+            labels.append(label)
+            slide_embeddings.append(s_e)
+    
+    slide_embeddings = np.asarray(slide_embeddings)
+    labels = np.asarray(labels)
+    print(f"\nslide embeddings shape: {slide_embeddings.shape}")
+        
+    umap_model = umap.UMAP(n_components=2, n_neighbors=10, min_dist=0.3, random_state=42)
+    slide_umap = umap_model.fit_transform(slide_embeddings)
+    
+    plt.figure(figsize=(10, 8))
+    for i, label in enumerate(unique_labels):
+        mask = labels == label
+        plt.scatter(
+            slide_umap[mask, 0],
+            slide_umap[mask, 1],
+            c=[colors[i]],
+            label=f'Class {label}',
+            s=50,
+            alpha=0.7,
+            edgecolors='black',
+            linewidth=0.5
+        )
+    plt.xlabel('UMAP 1')
+    plt.ylabel('UMAP 2')
+    plt.title('UMAP Projection of Slide Embeddings')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+    
     print("\nDone.")
 
 
