@@ -1,9 +1,10 @@
-from mil_toolbox.data import DummyWSIDataset, MILDataModule
+from mil_toolbox.data import DummyWSIDataset, WSIDataset
 from mil_toolbox.models import MILModel
 from mil_toolbox.train import CrossValidationTrainer
 from mil_toolbox.inference import AttentionAggregator
 
 import os
+from pathlib import Path
 import numpy as np
 import umap
 import matplotlib.pyplot as plt
@@ -12,8 +13,13 @@ def main():
     output_dir = 'image'
     os.makedirs(output_dir, exist_ok=True)
 
-    dataset = DummyWSIDataset(num_wsi=100)
-    print("Dataset created:")
+    data_dir = "test/data/embedding"
+    csv_path = "test/data/labels.csv"
+    
+    encoder = "uni"
+    
+    if Path(data_dir).exists() and Path(csv_path).exists():
+        dataset = WSIDataset(data_dir, encoder, csv_path)
 
     for i in range(len(dataset)):
         wsi, label = dataset[i]
@@ -29,20 +35,18 @@ def main():
 
     num_fold = 5
 
-    """
-    print("\n" + "=" * 50)
-    print("Train with CrossValidationTrainer")
-    print("=" * 50)
-
-    trainer = CrossValidationTrainer(
-        model_class=MILModel,
-        model_kwargs=model_kwargs,
-        dataset=dataset,
-        num_fold=num_fold,
-        output_dir="./outputs"
-    )
-    trainer.run()
-    """
+    # print("\n" + "=" * 50)
+    # print("Train with CrossValidationTrainer")
+    # print("=" * 50)
+    #
+    # trainer = CrossValidationTrainer(
+    #     model_class=MILModel,
+    #     model_kwargs=model_kwargs,
+    #     dataset=dataset,
+    #     num_fold=num_fold,
+    #     output_dir="./outputs"
+    # )
+    # trainer.run()
         
     print("\n" + "=" * 50)
     print("Inference Test with AttentionAggregator")

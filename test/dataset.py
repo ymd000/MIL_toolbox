@@ -1,7 +1,6 @@
 import csv
 from pathlib import Path
-from mil_toolbox.data import DummyWSIDataset
-from mil_toolbox.data.datasets.wsi import WSIDataset as HDF5WSIDataset
+from mil_toolbox.data import DummyWSIDataset, WSIDataset
 
 
 def load_labels_from_csv(csv_path: str, id_col: str = "slide_id", label_col: str = "label") -> dict:
@@ -37,16 +36,12 @@ def test_dummy_dataset():
         print(f"WSI {i}: shape={wsi.shape}, label={label}")
 
 
-def test_hdf5_dataset(data_dir: str, csv_path: str):
-    """HDF5WSIDatasetのテスト"""
-    print("\n=== HDF5WSIDataset Test ===")
-
-    # CSVからラベル情報を読み込み
-    label_dict = load_labels_from_csv(csv_path)
-    print(f"Loaded {len(label_dict)} labels from CSV")
+def test_hdf5_dataset(data_dir: str, model: str, csv_path: str):
+    """WSIDatasetのテスト"""
+    print("\n=== WSIDataset Test ===")
 
     # データセットを作成
-    dataset = HDF5WSIDataset(data_dir=data_dir, label_dict=label_dict)
+    dataset = WSIDataset(data_dir=data_dir, model=model, csv_path=csv_path)
     print(f"Dataset size: {len(dataset)}")
 
     for i in range(min(5, len(dataset))):
@@ -56,13 +51,14 @@ def test_hdf5_dataset(data_dir: str, csv_path: str):
 
 def main():
     # DummyWSIDatasetのテスト
-    test_dummy_dataset()
+    # test_dummy_dataset()
 
     # HDF5WSIDatasetのテスト（パスを指定して実行する場合）
-    # data_dir = "data/embedding"
-    # csv_path = "data/labels.csv"
-    # if Path(data_dir).exists() and Path(csv_path).exists():
-    #     test_hdf5_dataset(data_dir, csv_path)
+    data_dir = "test/data/embedding"
+    csv_path = "test/data/labels.csv"
+    model = "uni"
+    if Path(data_dir).exists() and Path(csv_path).exists():
+        test_hdf5_dataset(data_dir, model, csv_path)
 
 
 if __name__ == "__main__":
