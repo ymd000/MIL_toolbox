@@ -9,6 +9,7 @@
 # test
 !/test/
 !/test/*
+/test/data/*
 
 # setting
 !pyproject.toml
