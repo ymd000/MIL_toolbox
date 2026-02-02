@@ -31,7 +31,7 @@ class WSIDataset(Dataset):
         with open(csv_path, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                label_dict[row['slide_id']] = int(row['label'])
+                label_dict[row['case_id']] = int(row['label'])
 
         self.h5_files = []
         self.labels = []

@@ -10,9 +10,9 @@ import umap
 import matplotlib.pyplot as plt
 
 def main():
-    root_dir = "~/github.com/ymd000/SFT_Meni"
+    root_dir = "/home/ymd/github.com/ymd000/SFT_Meni"
     
-    image_dir = "image"
+    image_dir = "data/image"
     image_dir_full = os.path.join(root_dir, image_dir)
     os.makedirs(image_dir_full, exist_ok=True)
 
@@ -21,19 +21,16 @@ def main():
     csv_path = "data/label/case_labels_n69.csv"
     csv_path_full = os.path.join(root_dir, csv_path)
     
-    encoder = "gigapath"
+    encoder_name = "gigapath"
     
-    if Path(data_dir_full).exists() and Path(csv_path_full).exists():
-        dataset = WSIDataset(data_dir, encoder, csv_path)
-    else:
-        print("\n\nnot exist!!!\n\n")
+    dataset = WSIDataset(data_dir_full, encoder_name, csv_path_full)
 
     for i in range(len(dataset)):
         wsi, label = dataset[i]
         print(f"WSI {i}: {wsi.shape}, Label {i}: {label}")
 
     model_name = "abmil"
-    model_config = f'{model_name}.base.uni.none'
+    model_config = f'{model_name}.base.{encoder_name}.none'
 
     model_kwargs = {
         "num_classes": 2,
@@ -108,7 +105,9 @@ def main():
     plt.xlabel("UMAP Dimension 1")
     plt.ylabel("UMAP Dimension 2")
     plt.grid(True)
-    plt.savefig("image/umap.png")
+    
+    umap_path = os.path.join(image_dir_full,"umap.jpeg")
+    plt.savefig(umap_path)
 
     print("\nDone.")
 
