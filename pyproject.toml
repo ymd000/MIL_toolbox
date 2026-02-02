@@ -7,6 +7,7 @@ packages = ["src/mil_toolbox"]
 
 [tool.uv.sources]
 mil-lab = { git = "ssh://git@github.com/ymd000/MIL-Lab.git" }
+wsi-toolbox = { git = "https://github.com/technoplasm/wsi-toolbox.git" }
 
 [project]
 name = "mil_toolbox_ymd000"
@@ -16,7 +17,7 @@ authors = [
 ]
 description = "MIL trainer & attention visualizer"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -32,6 +33,7 @@ dependencies = [
     "tensorboard>=2.20.0",
     "torch>=2.8.0",
     "umap-learn>=0.5.7",
+    "wsi-toolbox",
 ]
 
 [project.urls]
