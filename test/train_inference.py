@@ -2,6 +2,7 @@ from mil_toolbox.data import DummyWSIDataset, WSIDataset
 from mil_toolbox.models import MILModel
 from mil_toolbox.train import CrossValidationTrainer
 from mil_toolbox.inference import AttentionAggregator
+from mil_toolbox.inference.preview import PreviewAttention
 
 import os
 from pathlib import Path
@@ -86,6 +87,13 @@ def main():
 
             labels.append(label)
             slide_embeddings.append(s_e)
+
+            h5_path = str(dataset.h5_files[idx])
+            previewer = PreviewAttention(size=64, model_name=encoder_name)
+            img = previewer(h5_path, attention_scores=att.flatten())
+            preview_path = os.path.join(image_dir_full, "preview", f"{h5_path}_preview.jpg")
+            img.save(preview_path)
+            print(f"    Saved preview: {preview_path}")
     
     slide_embeddings = np.asarray(slide_embeddings)
     labels = np.asarray(labels)
