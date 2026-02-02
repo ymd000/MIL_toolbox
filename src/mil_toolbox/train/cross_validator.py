@@ -88,7 +88,7 @@ class CrossValidationTrainer:
         )
 
         trainer = L.Trainer(
-            max_epochs=5,
+            max_epochs=50,
             accelerator='auto',
             devices=1,
             log_every_n_steps=1,

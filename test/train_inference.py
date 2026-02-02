@@ -40,18 +40,18 @@ def main():
 
     num_fold = 5
 
-    # print("\n" + "=" * 50)
-    # print("Train with CrossValidationTrainer")
-    # print("=" * 50)
-    #
-    # trainer = CrossValidationTrainer(
-    #     model_class=MILModel,
-    #     model_kwargs=model_kwargs,
-    #     dataset=dataset,
-    #     num_fold=num_fold,
-    #     output_dir="./outputs"
-    # )
-    # trainer.run()
+    print("\n" + "=" * 50)
+    print("Train with CrossValidationTrainer")
+    print("=" * 50)
+
+    trainer = CrossValidationTrainer(
+        model_class=MILModel,
+        model_kwargs=model_kwargs,
+        dataset=dataset,
+        num_fold=num_fold,
+        output_dir="./outputs"
+    )
+    trainer.run()
         
     print("\n" + "=" * 50)
     print("Inference Test with AttentionAggregator")
@@ -88,12 +88,13 @@ def main():
             labels.append(label)
             slide_embeddings.append(s_e)
 
-            h5_path = str(dataset.h5_files[idx])
-            previewer = PreviewAttention(size=64, model_name=encoder_name)
-            img = previewer(h5_path, attention_scores=att.flatten())
-            preview_path = os.path.join(image_dir_full, "preview", f"{h5_path}_preview.jpg")
-            img.save(preview_path)
-            print(f"    Saved preview: {preview_path}")
+            # h5_path = str(dataset.h5_files[idx])
+            # print(f"hdf5 path:{h5_path}")
+            # previewer = PreviewAttention(size=64, model_name=encoder_name)
+            # img = previewer(h5_path, attention_scores=att.flatten())
+            # preview_path = os.path.join(image_dir_full, "preview", f"{h5_path}_preview.jpg")
+            # img.save(preview_path)
+            # print(f"    Saved preview: {preview_path}")
     
     slide_embeddings = np.asarray(slide_embeddings)
     labels = np.asarray(labels)
