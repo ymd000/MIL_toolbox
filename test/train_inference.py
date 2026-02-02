@@ -10,16 +10,23 @@ import umap
 import matplotlib.pyplot as plt
 
 def main():
-    output_dir = 'image'
-    os.makedirs(output_dir, exist_ok=True)
+    root_dir = "~/github.com/ymd000/SFT_Meni"
+    
+    image_dir = "image"
+    image_dir_full = os.path.join(root_dir, image_dir)
+    os.makedirs(image_dir_full, exist_ok=True)
 
-    data_dir = "test/data/embedding"
-    csv_path = "test/data/labels.csv"
+    data_dir = "data/embedding"
+    data_dir_full = os.path.join(root_dir, data_dir)
+    csv_path = "data/label/case_labels_n69.csv"
+    csv_path_full = os.path.join(root_dir, csv_path)
     
-    encoder = "uni"
+    encoder = "gigapath"
     
-    if Path(data_dir).exists() and Path(csv_path).exists():
+    if Path(data_dir_full).exists() and Path(csv_path_full).exists():
         dataset = WSIDataset(data_dir, encoder, csv_path)
+    else:
+        print("\n\nnot exist!!!\n\n")
 
     for i in range(len(dataset)):
         wsi, label = dataset[i]
