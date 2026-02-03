@@ -76,22 +76,6 @@ def main():
     accuracy = (predictions == labels).mean()
     print(f"Accuracy: {accuracy:.4f}")
 
-<<<<<<< HEAD
-            labels.append(label)
-            slide_embeddings.append(s_e)
-
-            # h5_path = str(dataset.h5_files[idx])
-            # print(f"hdf5 path:{h5_path}")
-            # previewer = PreviewAttention(size=64, model_name=encoder_name)
-            # img = previewer(h5_path, attention_scores=att.flatten())
-            # preview_path = os.path.join(image_dir_full, "preview", f"{h5_path}_preview.jpg")
-            # img.save(preview_path)
-            # print(f"    Saved preview: {preview_path}")
-    
-    slide_embeddings = np.asarray(slide_embeddings)
-    labels = np.asarray(labels)
-    print(f"\nslide embeddings shape: {slide_embeddings.shape}")
-=======
     # # Preview generation (optional - uncomment if needed)
     # print("\n" + "=" * 50)
     # print("Generating attention previews")
@@ -111,14 +95,13 @@ def main():
     #         preview_path = os.path.join(preview_dir, f"sample_{idx}_preview.jpg")
     #         img.save(preview_path)
     #         print(f"  Saved: {preview_path}")
->>>>>>> 6333278 (update:)
         
     # UMAP visualization
     print("\n" + "=" * 50)
     print("UMAP Visualization")
     print("=" * 50)
 
-    umap_model = umap.UMAP(n_components=2, n_neighbors=10, min_dist=0.3, random_state=42)
+    umap_model = umap.UMAP(n_components=2, n_neighbors=15, min_dist=0.1, random_state=42)
     slide_umap = umap_model.fit_transform(slide_embeddings)
 
     plt.figure(figsize=(10, 10))
