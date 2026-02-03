@@ -14,7 +14,7 @@ class PreviewAttention(BasePreviewCommand):
 
     Usage:
         previewer = PreviewAttention(size=64)
-        img = previewer(hdf5_path='data.h5', attention_scores=scores)
+        img = previewer(hdf5_path='case_id.h5', attention_scores=scores)
     """
 
     def _prepare(

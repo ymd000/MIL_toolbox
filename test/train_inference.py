@@ -33,7 +33,7 @@ def main():
 
     model_kwargs = {"num_classes": 2, "model_config": model_config}
 
-    # num_fold = 5
+    num_fold = 5
 
     # print("\n" + "=" * 50)
     # print("Train with CrossValidationTrainer")
