@@ -10,6 +10,8 @@
 !/test/
 !/test/*
 /test/data/*
+/test/ndpi/
+/test/ndpi/*
 
 # setting
 !pyproject.toml
