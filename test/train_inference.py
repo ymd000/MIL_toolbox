@@ -1,6 +1,7 @@
 from mil_toolbox.data import WSIDataset
 from mil_toolbox.models import MILModel
 from mil_toolbox.inference import SlideEmbeddingCalculator, PreviewAttention
+from mil_toolbox.utils import compute_metrics_from_results, print_metrics
 
 import os
 import numpy as np
@@ -72,9 +73,16 @@ def main():
     print(f"\nSlide embeddings shape: {slide_embeddings.shape}")
     print(f"Labels shape: {labels.shape}")
 
-    # Print prediction summary
-    accuracy = (predictions == labels).mean()
-    print(f"Accuracy: {accuracy:.4f}")
+    # Print classification metrics
+    # class_names: mapping from label index to display name
+    # positive_class: which label to treat as positive (for sensitivity/specificity)
+    class_names = {0: "Benign", 1: "Malignant"}
+    metrics = compute_metrics_from_results(
+        results,
+        positive_class=1,
+        class_names=class_names,
+    )
+    print_metrics(metrics, title="Classification Metrics")
 
     # # Preview generation (optional - uncomment if needed)
     # print("\n" + "=" * 50)
