@@ -4,9 +4,7 @@ from .data import FoldManager, FoldInfo, WSIDataset, DummyWSIDataset, MILDataMod
 from .models import MILModel
 from .train import CrossValidationTrainer
 from .inference import (
-    AttentionAggregator,
     MILPredictor,
-    PreviewAttention,
     SlideEmbeddingCalculator,
 )
 
@@ -24,8 +22,6 @@ __all__ = [
     # Training
     "CrossValidationTrainer",
     # Inference
-    "AttentionAggregator",
     "MILPredictor",
-    "PreviewAttention",
     "SlideEmbeddingCalculator",
 ]
