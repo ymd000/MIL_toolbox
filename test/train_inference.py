@@ -112,21 +112,43 @@ def main():
     umap_model = umap.UMAP(n_components=2, n_neighbors=15, min_dist=0.1, random_state=42)
     slide_umap = umap_model.fit_transform(slide_embeddings)
 
-    plt.figure(figsize=(10, 10))
+    # Get case names from dataset (use h5 file stem as case ID)
+    case_names = [dataset.h5_files[idx].stem for idx in indices]
+
+    plt.figure(figsize=(12, 10))
 
     num_classes = len(np.unique(labels))
     for i in range(num_classes):
         mask = labels == i
-        plt.scatter(slide_umap[mask, 0], slide_umap[mask, 1], label=f"Class {i}", alpha=0.7)
+        label_name = class_names.get(i, f"Class {i}")
+        plt.scatter(
+            slide_umap[mask, 0],
+            slide_umap[mask, 1],
+            label=label_name,
+            alpha=0.7,
+            s=100,
+        )
 
-    plt.legend()
+    # Annotate each point with case name
+    for j, (x, y) in enumerate(slide_umap):
+        plt.annotate(
+            case_names[j],
+            (x, y),
+            fontsize=7,
+            alpha=0.8,
+            xytext=(3, 3),
+            textcoords="offset points",
+        )
+
+    plt.legend(loc="best", fontsize=10)
     plt.title("UMAP Visualization of Slide Embeddings")
     plt.xlabel("UMAP Dimension 1")
     plt.ylabel("UMAP Dimension 2")
-    plt.grid(True)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
 
     umap_path = os.path.join(image_dir_full, "umap.jpeg")
-    plt.savefig(umap_path)
+    plt.savefig(umap_path, dpi=150)
     print(f"Saved UMAP plot: {umap_path}")
 
     print("\nDone.")
