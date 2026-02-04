@@ -1,7 +1,7 @@
 from mil_toolbox.data import WSIDataset
 from mil_toolbox.models import MILModel
-from mil_toolbox.inference import SlideEmbeddingCalculator, PreviewAttention
-from mil_toolbox.utils import compute_metrics_from_results, print_metrics
+from mil_toolbox.inference import SlideEmbeddingCalculator
+from mil_toolbox.utils import compute_metrics_from_results, print_metrics, PreviewAttention
 
 import os
 import numpy as np
@@ -61,8 +61,9 @@ def main():
     )
     calculator.load_models(checkpoint_name="best")
 
-    # Compute slide embeddings for all samples (using validation fold)
-    results = calculator.compute_with_predictions(dataset, use_val_fold=True)
+    # Compute slide embeddings and save to HDF5 files
+    # Saved under 'slide_embedding/{model_name}/' in each HDF5 file
+    results = calculator.compute_and_save(dataset, use_val_fold=True)
 
     slide_embeddings = results["embeddings"]
     labels = results["labels"]
