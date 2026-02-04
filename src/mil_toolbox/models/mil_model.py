@@ -16,7 +16,6 @@ class MILModel(L.LightningModule):
 
         self.model = create_model(
                         model_config,
-                        pretrained=pretrained,
                         num_classes=num_classes,
                         **model_kwargs
                     )
