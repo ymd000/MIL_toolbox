@@ -117,6 +117,9 @@ def main():
 
     plt.figure(figsize=(12, 10))
 
+    # Identify misclassified samples
+    misclassified = predictions != labels
+
     num_classes = len(np.unique(labels))
     for i in range(num_classes):
         mask = labels == i
@@ -127,6 +130,18 @@ def main():
             label=label_name,
             alpha=0.7,
             s=100,
+        )
+
+    # Draw red circles around misclassified points
+    if np.any(misclassified):
+        plt.scatter(
+            slide_umap[misclassified, 0],
+            slide_umap[misclassified, 1],
+            facecolors="none",
+            edgecolors="red",
+            linewidths=2,
+            s=250,
+            label="Misclassified",
         )
 
     # Annotate each point with case name
