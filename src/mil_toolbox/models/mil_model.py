@@ -9,13 +9,14 @@ class MILModel(L.LightningModule):
             self,
             num_classes: int,
             model_config: str,
+            pretrained: bool = False,
             **model_kwargs
         ):
         super().__init__()
 
         self.model = create_model(
                         model_config,
-                        pretrained=False,
+                        pretrained=pretrained,
                         num_classes=num_classes,
                         **model_kwargs
                     )
