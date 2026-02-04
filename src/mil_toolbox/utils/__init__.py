@@ -11,6 +11,8 @@ from .metrics import (
     print_metrics,
     metrics_to_dataframe,
 )
+from .umap import plot_umap
+from .preview import PreviewAttention, generate_attention_previews
 
 __all__ = [
     "plot_training_metrics",
@@ -23,4 +25,7 @@ __all__ = [
     "format_metrics_table",
     "print_metrics",
     "metrics_to_dataframe",
+    "plot_umap",
+    "PreviewAttention",
+    "generate_attention_previews",
 ]
