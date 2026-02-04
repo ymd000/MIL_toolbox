@@ -1,9 +1,10 @@
 """Slide-level embedding computation from patch embeddings and attention."""
 
 from pathlib import Path
-from typing import Literal
 
+import h5py
 import numpy as np
+import pandas as pd
 import torch
 
 from .predictor import MILPredictor
@@ -36,6 +37,7 @@ class SlideEmbeddingCalculator:
         model_kwargs: dict,
         output_dir: str | Path,
         device: str = "auto",
+        model_name: str | None = None,
     ):
         """Initialize the calculator.
 
@@ -44,6 +46,8 @@ class SlideEmbeddingCalculator:
             model_kwargs: Keyword arguments for model instantiation
             output_dir: Directory containing fold checkpoints
             device: Device to use ("auto", "cuda", "cpu")
+            model_name: Name for saving slide embeddings (e.g., "abmil").
+                        If None, extracted from model_config.
         """
         self.predictor = MILPredictor(
             model_class=model_class,
@@ -51,6 +55,15 @@ class SlideEmbeddingCalculator:
             output_dir=output_dir,
             device=device,
         )
+
+        # Extract model name for HDF5 storage
+        if model_name is not None:
+            self.model_name = model_name
+        elif "model_config" in model_kwargs:
+            # Extract from model_config (e.g., "abmil.base.gigapath.none" -> "abmil")
+            self.model_name = model_kwargs["model_config"].split(".")[0]
+        else:
+            self.model_name = "mil"
 
     def load_models(self, checkpoint_name: str = "best") -> None:
         """Load models from all folds.
@@ -249,4 +262,253 @@ class SlideEmbeddingCalculator:
             "predictions": np.array(predictions),
             "probabilities": np.array(probabilities),
             "indices": indices,
+        }
+
+    def save_to_hdf5(
+        self,
+        h5_path: str | Path,
+        slide_embedding: np.ndarray,
+        attention: np.ndarray | None = None,
+        prediction: int | None = None,
+        probabilities: np.ndarray | None = None,
+        model_name: str | None = None,
+    ) -> None:
+        """Save slide embedding to existing HDF5 file.
+
+        Saves under 'slide_embedding/{model_name}/' group.
+
+        Args:
+            h5_path: Path to the HDF5 file
+            slide_embedding: Slide-level embedding array
+            attention: Attention weights (optional)
+            prediction: Predicted class (optional)
+            probabilities: Prediction probabilities (optional)
+            model_name: Model name for group path. If None, uses self.model_name.
+        """
+        if model_name is None:
+            model_name = self.model_name
+
+        group_path = f"slide_embedding/{model_name}"
+
+        with h5py.File(h5_path, "a") as f:
+            # Remove existing group if present
+            if group_path in f:
+                del f[group_path]
+
+            grp = f.create_group(group_path)
+            grp.create_dataset("embedding", data=slide_embedding)
+
+            if attention is not None:
+                grp.create_dataset("attention", data=attention)
+
+            if prediction is not None:
+                grp.attrs["prediction"] = prediction
+
+            if probabilities is not None:
+                grp.create_dataset("probabilities", data=probabilities)
+
+    def compute_and_save(
+        self,
+        dataset,
+        use_val_fold: bool = True,
+        normalize: bool = False,
+        save_attention: bool = True,
+        save_prediction: bool = True,
+    ) -> dict:
+        """Compute slide embeddings and save to HDF5 files.
+
+        Each slide embedding is saved to its corresponding HDF5 file
+        under 'slide_embedding/{model_name}/'.
+
+        Args:
+            dataset: Dataset with h5_files attribute and __getitem__ returning (x, label)
+            use_val_fold: Use validation fold model for each sample
+            normalize: Whether to L2-normalize embeddings
+            save_attention: Whether to save attention weights
+            save_prediction: Whether to save prediction results
+
+        Returns:
+            dict with keys:
+                - embeddings: np.ndarray of shape (n_samples, embed_dim)
+                - labels: np.ndarray of shape (n_samples,)
+                - predictions: np.ndarray of predicted classes
+                - probabilities: np.ndarray of shape (n_samples, n_classes)
+                - indices: list of sample indices in order processed
+        """
+        embeddings = []
+        labels = []
+        predictions = []
+        probabilities = []
+        indices = []
+
+        if use_val_fold:
+            for fold_idx in range(self.predictor.num_folds):
+                _, val_indices = self.predictor.get_fold_indices(fold_idx)
+
+                for idx in val_indices:
+                    x, label = dataset[idx]
+                    result = self.compute(x, fold_idx, normalize=normalize)
+
+                    slide_emb = result["slide_embedding"].numpy()
+                    att = result["attention"].numpy() if result["attention"] is not None else None
+                    pred = result["pred_class"]
+                    probs = result["probs"].numpy()
+
+                    # Save to HDF5
+                    h5_path = dataset.h5_files[idx]
+                    self.save_to_hdf5(
+                        h5_path=h5_path,
+                        slide_embedding=slide_emb,
+                        attention=att if save_attention else None,
+                        prediction=pred if save_prediction else None,
+                        probabilities=probs if save_prediction else None,
+                    )
+
+                    embeddings.append(slide_emb)
+                    labels.append(label)
+                    predictions.append(pred)
+                    probabilities.append(probs)
+                    indices.append(idx)
+
+                    print(f"Saved slide embedding to {h5_path}")
+        else:
+            for idx in range(len(dataset)):
+                x, label = dataset[idx]
+                result = self.compute(x, fold_idx=0, normalize=normalize)
+
+                slide_emb = result["slide_embedding"].numpy()
+                att = result["attention"].numpy() if result["attention"] is not None else None
+                pred = result["pred_class"]
+                probs = result["probs"].numpy()
+
+                # Save to HDF5
+                h5_path = dataset.h5_files[idx]
+                self.save_to_hdf5(
+                    h5_path=h5_path,
+                    slide_embedding=slide_emb,
+                    attention=att if save_attention else None,
+                    prediction=pred if save_prediction else None,
+                    probabilities=probs if save_prediction else None,
+                )
+
+                embeddings.append(slide_emb)
+                labels.append(label)
+                predictions.append(pred)
+                probabilities.append(probs)
+                indices.append(idx)
+
+                print(f"Saved slide embedding to {h5_path}")
+
+        return {
+            "embeddings": np.array(embeddings),
+            "labels": np.array(labels),
+            "predictions": np.array(predictions),
+            "probabilities": np.array(probabilities),
+            "indices": indices,
+        }
+
+    @staticmethod
+    def load_from_hdf5(
+        h5_path: str | Path,
+        model_name: str,
+    ) -> dict:
+        """Load slide embedding from HDF5 file.
+
+        Args:
+            h5_path: Path to the HDF5 file
+            model_name: Model name used when saving
+
+        Returns:
+            dict with keys: embedding, attention (if exists), prediction, probabilities
+        """
+        group_path = f"slide_embedding/{model_name}"
+
+        with h5py.File(h5_path, "r") as f:
+            if group_path not in f:
+                raise KeyError(f"Group '{group_path}' not found in {h5_path}")
+
+            grp = f[group_path]
+            result = {
+                "embedding": grp["embedding"][:],
+            }
+
+            if "attention" in grp:
+                result["attention"] = grp["attention"][:]
+
+            if "prediction" in grp.attrs:
+                result["prediction"] = grp.attrs["prediction"]
+
+            if "probabilities" in grp:
+                result["probabilities"] = grp["probabilities"][:]
+
+        return result
+
+    @staticmethod
+    def load_dataset_embeddings(
+        data_dir: str | Path,
+        model_name: str,
+        csv_path: str | Path,
+    ) -> dict:
+        """Load slide embeddings for all samples from HDF5 files.
+
+        Args:
+            data_dir: Directory containing HDF5 files
+            model_name: Model name used when saving (e.g., "abmil")
+            csv_path: Path to CSV file with case_id and label columns
+
+        Returns:
+            dict with keys:
+                - embeddings: np.ndarray of shape (n_samples, embed_dim)
+                - labels: np.ndarray of shape (n_samples,)
+                - predictions: np.ndarray or None
+                - probabilities: np.ndarray or None
+                - attentions: list of attention arrays or None
+                - case_names: list of case IDs
+                - h5_paths: list of Path objects
+        """
+        data_dir = Path(data_dir)
+        df = pd.read_csv(csv_path)
+
+        embeddings = []
+        labels = []
+        predictions = []
+        probabilities = []
+        attentions = []
+        case_names = []
+        h5_paths = []
+
+        for _, row in df.iterrows():
+            case_id = row["case_id"]
+            label = row["label"]
+            h5_path = data_dir / f"{case_id}.h5"
+
+            if not h5_path.exists():
+                print(f"Warning: {h5_path} not found, skipping.")
+                continue
+
+            try:
+                data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), model_name)
+            except KeyError:
+                print(f"Warning: No slide embedding for {case_id}, skipping.")
+                continue
+
+            embeddings.append(data["embedding"])
+            labels.append(label)
+            predictions.append(data.get("prediction"))
+            probabilities.append(data.get("probabilities"))
+            attentions.append(data.get("attention"))
+            case_names.append(case_id)
+            h5_paths.append(h5_path)
+
+        has_predictions = predictions and predictions[0] is not None
+        has_probabilities = probabilities and probabilities[0] is not None
+
+        return {
+            "embeddings": np.array(embeddings),
+            "labels": np.array(labels),
+            "predictions": np.array(predictions) if has_predictions else None,
+            "probabilities": np.array(probabilities) if has_probabilities else None,
+            "attentions": attentions,
+            "case_names": case_names,
+            "h5_paths": h5_paths,
         }
