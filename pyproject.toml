@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 packages = ["src/mil_toolbox"]
 
 [tool.uv.sources]
-mil-lab = { git = "ssh://git@github.com/ymd000/MIL-Lab.git" }
+mil-lab = { git = "https://github.com/ymd000/MIL-Lab.git" }
 wsi-toolbox = { git = "https://github.com/technoplasm/wsi-toolbox.git" }
 
 [project]
