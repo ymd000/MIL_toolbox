@@ -12,7 +12,6 @@ from .metrics import (
     metrics_to_dataframe,
 )
 from .umap import plot_umap
-from .preview import PreviewAttention, generate_attention_previews
 
 __all__ = [
     "plot_training_metrics",
@@ -29,3 +28,13 @@ __all__ = [
     "PreviewAttention",
     "generate_attention_previews",
 ]
+
+
+def __getattr__(name):
+    if name in ("PreviewAttention", "generate_attention_previews"):
+        from .preview import PreviewAttention, generate_attention_previews
+
+        globals()["PreviewAttention"] = PreviewAttention
+        globals()["generate_attention_previews"] = generate_attention_previews
+        return globals()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

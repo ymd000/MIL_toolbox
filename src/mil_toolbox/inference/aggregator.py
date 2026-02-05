@@ -6,6 +6,7 @@ import h5py
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 
 from .predictor import MILPredictor
 
@@ -116,6 +117,148 @@ class SlideEmbeddingCalculator:
             "attention": attention,
             "probs": result["probs"],
             "pred_class": result["pred_class"],
+        }
+
+    def compute_nearest_cosine(
+        self,
+        patch_embeddings: torch.Tensor,
+        normalize: bool = False,
+    ) -> dict:
+        """Compute slide embedding by selecting the patch nearest to mean (cosine similarity).
+
+        No trained model is required.
+
+        Args:
+            patch_embeddings: Tensor of shape (n_patches, embed_dim)
+            normalize: Whether to L2-normalize the output embedding
+
+        Returns:
+            dict with keys:
+                - slide_embedding: Selected patch embedding (embed_dim,)
+                - attention: None
+                - probs: None
+                - pred_class: None
+                - selected_index: Index of the selected patch
+        """
+        if patch_embeddings.dim() == 3:
+            patch_embeddings = patch_embeddings.squeeze(0)
+
+        mean_emb = patch_embeddings.mean(dim=0)
+        similarities = F.cosine_similarity(
+            patch_embeddings, mean_emb.unsqueeze(0), dim=1
+        )
+        selected_index = similarities.argmax().item()
+        slide_embedding = patch_embeddings[selected_index].clone()
+
+        if normalize:
+            slide_embedding = slide_embedding / slide_embedding.norm()
+
+        return {
+            "slide_embedding": slide_embedding,
+            "attention": None,
+            "probs": None,
+            "pred_class": None,
+            "selected_index": selected_index,
+        }
+
+    def compute_nearest_euclidean(
+        self,
+        patch_embeddings: torch.Tensor,
+        normalize: bool = False,
+    ) -> dict:
+        """Compute slide embedding by selecting the patch nearest to mean (Euclidean distance).
+
+        No trained model is required.
+
+        Args:
+            patch_embeddings: Tensor of shape (n_patches, embed_dim)
+            normalize: Whether to L2-normalize the output embedding
+
+        Returns:
+            dict with keys:
+                - slide_embedding: Selected patch embedding (embed_dim,)
+                - attention: None
+                - probs: None
+                - pred_class: None
+                - selected_index: Index of the selected patch
+        """
+        if patch_embeddings.dim() == 3:
+            patch_embeddings = patch_embeddings.squeeze(0)
+
+        mean_emb = patch_embeddings.mean(dim=0)
+        distances = torch.cdist(
+            mean_emb.unsqueeze(0), patch_embeddings
+        ).squeeze(0)
+        selected_index = distances.argmin().item()
+        slide_embedding = patch_embeddings[selected_index].clone()
+
+        if normalize:
+            slide_embedding = slide_embedding / slide_embedding.norm()
+
+        return {
+            "slide_embedding": slide_embedding,
+            "attention": None,
+            "probs": None,
+            "pred_class": None,
+            "selected_index": selected_index,
+        }
+
+    def compute_top_attention(
+        self,
+        patch_embeddings: torch.Tensor,
+        fold_idx: int,
+        normalize: bool = False,
+    ) -> dict:
+        """Compute slide embedding using the patch with highest attention.
+
+        Uses the trained model to compute attention, selects the patch
+        with the highest attention weight, and runs the single patch
+        through the model to get prediction results.
+
+        Args:
+            patch_embeddings: Tensor of shape (n_patches, embed_dim)
+            fold_idx: Fold index to use for attention computation
+            normalize: Whether to L2-normalize the output embedding
+
+        Returns:
+            dict with keys:
+                - slide_embedding: Top-attention patch embedding (embed_dim,)
+                - attention: Full attention weights (n_patches,)
+                - probs: Prediction probabilities from single-patch inference
+                - pred_class: Predicted class from single-patch inference
+                - selected_index: Index of the selected patch
+        """
+        # Get attention from full bag
+        result = self.predictor.predict(
+            patch_embeddings, fold_idx, return_attention=True
+        )
+        attention = result["attention"]
+        if attention is None:
+            raise ValueError("Model did not return attention weights")
+        attention = attention.flatten()
+
+        if patch_embeddings.dim() == 3:
+            patch_embeddings = patch_embeddings.squeeze(0)
+
+        # Select patch with highest attention
+        selected_index = attention.argmax().item()
+        slide_embedding = patch_embeddings[selected_index].clone()
+
+        if normalize:
+            slide_embedding = slide_embedding / slide_embedding.norm()
+
+        # Run single patch through model for prediction
+        single_patch = patch_embeddings[selected_index].unsqueeze(0)  # (1, embed_dim)
+        single_result = self.predictor.predict(
+            single_patch, fold_idx, return_attention=False
+        )
+
+        return {
+            "slide_embedding": slide_embedding,
+            "attention": attention,
+            "probs": single_result["probs"],
+            "pred_class": single_result["pred_class"],
+            "selected_index": selected_index,
         }
 
     def compute_ensemble(
@@ -272,6 +415,7 @@ class SlideEmbeddingCalculator:
         prediction: int | None = None,
         probabilities: np.ndarray | None = None,
         model_name: str | None = None,
+        selected_index: int | None = None,
     ) -> None:
         """Save slide embedding to existing HDF5 file.
 
@@ -284,6 +428,7 @@ class SlideEmbeddingCalculator:
             prediction: Predicted class (optional)
             probabilities: Prediction probabilities (optional)
             model_name: Model name for group path. If None, uses self.model_name.
+            selected_index: Index of the selected patch (optional)
         """
         if model_name is None:
             model_name = self.model_name
@@ -306,6 +451,9 @@ class SlideEmbeddingCalculator:
 
             if probabilities is not None:
                 grp.create_dataset("probabilities", data=probabilities)
+
+            if selected_index is not None:
+                grp.attrs["selected_index"] = selected_index
 
     def compute_and_save(
         self,
@@ -407,6 +555,166 @@ class SlideEmbeddingCalculator:
             "indices": indices,
         }
 
+    _MODEL_FREE_STRATEGIES = {"nearest_cosine", "nearest_euclidean"}
+    _MODEL_STRATEGIES = {"top_attention"}
+    _ALL_STRATEGIES = _MODEL_FREE_STRATEGIES | _MODEL_STRATEGIES
+
+    def compute_and_save_strategy(
+        self,
+        dataset,
+        strategy: str,
+        use_val_fold: bool = True,
+        normalize: bool = False,
+        save_attention: bool = True,
+        save_prediction: bool = True,
+    ) -> dict:
+        """Compute slide embeddings using a specified strategy and save to HDF5 files.
+
+        Strategies:
+            - "nearest_cosine": Patch nearest to mean by cosine similarity (no model needed)
+            - "nearest_euclidean": Patch nearest to mean by Euclidean distance (no model needed)
+            - "top_attention": Patch with highest attention (model needed)
+
+        Args:
+            dataset: Dataset with h5_files attribute and __getitem__ returning (x, label)
+            strategy: Embedding strategy name
+            use_val_fold: Use validation fold model (only for top_attention)
+            normalize: Whether to L2-normalize embeddings
+            save_attention: Whether to save attention weights (top_attention only)
+            save_prediction: Whether to save prediction results (top_attention only)
+
+        Returns:
+            dict with keys:
+                - embeddings: np.ndarray of shape (n_samples, embed_dim)
+                - labels: np.ndarray of shape (n_samples,)
+                - predictions: np.ndarray or None
+                - probabilities: np.ndarray or None
+                - indices: list of sample indices
+                - selected_indices: list of selected patch indices
+        """
+        if strategy not in self._ALL_STRATEGIES:
+            raise ValueError(
+                f"Unknown strategy '{strategy}'. "
+                f"Must be one of: {sorted(self._ALL_STRATEGIES)}"
+            )
+
+        # Determine HDF5 group name
+        if strategy in self._MODEL_FREE_STRATEGIES:
+            save_model_name = strategy
+        else:
+            save_model_name = f"{self.model_name}_{strategy}"
+
+        embeddings = []
+        labels = []
+        predictions = []
+        probabilities = []
+        indices = []
+        selected_indices = []
+
+        if strategy in self._MODEL_FREE_STRATEGIES:
+            compute_fn = (
+                self.compute_nearest_cosine
+                if strategy == "nearest_cosine"
+                else self.compute_nearest_euclidean
+            )
+
+            for idx in range(len(dataset)):
+                x, label = dataset[idx]
+                result = compute_fn(x, normalize=normalize)
+
+                slide_emb = result["slide_embedding"].numpy()
+                h5_path = dataset.h5_files[idx]
+                self.save_to_hdf5(
+                    h5_path=h5_path,
+                    slide_embedding=slide_emb,
+                    model_name=save_model_name,
+                    selected_index=result["selected_index"],
+                )
+
+                embeddings.append(slide_emb)
+                labels.append(label)
+                indices.append(idx)
+                selected_indices.append(result["selected_index"])
+                print(f"Saved slide embedding ({strategy}) to {h5_path}")
+
+        else:
+            # top_attention: model-dependent, fold-based
+            if use_val_fold:
+                for fold_idx in range(self.predictor.num_folds):
+                    _, val_indices = self.predictor.get_fold_indices(fold_idx)
+
+                    for idx in val_indices:
+                        x, label = dataset[idx]
+                        result = self.compute_top_attention(
+                            x, fold_idx, normalize=normalize
+                        )
+
+                        slide_emb = result["slide_embedding"].numpy()
+                        att = result["attention"].numpy()
+                        pred = result["pred_class"]
+                        probs = result["probs"].numpy()
+
+                        h5_path = dataset.h5_files[idx]
+                        self.save_to_hdf5(
+                            h5_path=h5_path,
+                            slide_embedding=slide_emb,
+                            attention=att if save_attention else None,
+                            prediction=pred if save_prediction else None,
+                            probabilities=probs if save_prediction else None,
+                            model_name=save_model_name,
+                            selected_index=result["selected_index"],
+                        )
+
+                        embeddings.append(slide_emb)
+                        labels.append(label)
+                        predictions.append(pred)
+                        probabilities.append(probs)
+                        indices.append(idx)
+                        selected_indices.append(result["selected_index"])
+                        print(f"Saved slide embedding ({strategy}) to {h5_path}")
+            else:
+                for idx in range(len(dataset)):
+                    x, label = dataset[idx]
+                    result = self.compute_top_attention(
+                        x, fold_idx=0, normalize=normalize
+                    )
+
+                    slide_emb = result["slide_embedding"].numpy()
+                    att = result["attention"].numpy()
+                    pred = result["pred_class"]
+                    probs = result["probs"].numpy()
+
+                    h5_path = dataset.h5_files[idx]
+                    self.save_to_hdf5(
+                        h5_path=h5_path,
+                        slide_embedding=slide_emb,
+                        attention=att if save_attention else None,
+                        prediction=pred if save_prediction else None,
+                        probabilities=probs if save_prediction else None,
+                        model_name=save_model_name,
+                        selected_index=result["selected_index"],
+                    )
+
+                    embeddings.append(slide_emb)
+                    labels.append(label)
+                    predictions.append(pred)
+                    probabilities.append(probs)
+                    indices.append(idx)
+                    selected_indices.append(result["selected_index"])
+                    print(f"Saved slide embedding ({strategy}) to {h5_path}")
+
+        has_predictions = predictions and predictions[0] is not None
+        has_probabilities = probabilities and probabilities[0] is not None
+
+        return {
+            "embeddings": np.array(embeddings),
+            "labels": np.array(labels),
+            "predictions": np.array(predictions) if has_predictions else None,
+            "probabilities": np.array(probabilities) if has_probabilities else None,
+            "indices": indices,
+            "selected_indices": selected_indices,
+        }
+
     @staticmethod
     def load_from_hdf5(
         h5_path: str | Path,
@@ -440,6 +748,9 @@ class SlideEmbeddingCalculator:
 
             if "probabilities" in grp:
                 result["probabilities"] = grp["probabilities"][:]
+
+            if "selected_index" in grp.attrs:
+                result["selected_index"] = grp.attrs["selected_index"]
 
         return result
 
