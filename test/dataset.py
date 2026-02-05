@@ -3,7 +3,7 @@ from pathlib import Path
 from mil_toolbox.data import DummyWSIDataset, WSIDataset
 
 
-def load_labels_from_csv(csv_path: str, id_col: str = "slide_id", label_col: str = "label") -> dict:
+def load_labels_from_csv(csv_path: str, id_col: str = "case_id", label_col: str = "label") -> dict:
     """
     CSVファイルからラベル情報を読み込む
 

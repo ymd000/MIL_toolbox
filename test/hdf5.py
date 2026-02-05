@@ -46,7 +46,7 @@ def create_dummy_hdf5_dataset(
     label_records = []
 
     for i in range(num_wsi):
-        slide_id = f"slide_{i:04d}"
+        case_id = f"slide_{i:04d}"
         num_patches = np.random.randint(min_patches, max_patches + 1)
         label = np.random.randint(0, 2)
 
@@ -54,16 +54,16 @@ def create_dummy_hdf5_dataset(
         features = np.random.randn(num_patches, feature_dim).astype(np.float32)
 
         # HDF5ファイルに保存
-        h5_path = os.path.join(output_dir, f"{slide_id}.h5")
+        h5_path = os.path.join(output_dir, f"{case_id}.h5")
         with h5py.File(h5_path, 'w') as f:
             f.create_dataset(f'{model}/features', data=features)
 
-        label_records.append({'slide_id': slide_id, 'label': label})
+        label_records.append({'case_id': case_id, 'label': label})
         print(f"Created {h5_path}: shape={features.shape}, label={label}")
 
     # ラベルCSVを保存
     with open(label_csv_path, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=['slide_id', 'label'])
+        writer = csv.DictWriter(f, fieldnames=['case_id', 'label'])
         writer.writeheader()
         writer.writerows(label_records)
 

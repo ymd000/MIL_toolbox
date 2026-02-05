@@ -1,171 +1,144 @@
+"""End-to-end test: inference with all slide embedding strategies using dummy data."""
+
+from pathlib import Path
+
 from mil_toolbox.data import WSIDataset
 from mil_toolbox.models import MILModel
 from mil_toolbox.inference import SlideEmbeddingCalculator
-from mil_toolbox.utils import compute_metrics_from_results, print_metrics, PreviewAttention
-
-import os
-import numpy as np
-import umap
-import matplotlib.pyplot as plt
+from mil_toolbox.utils import compute_metrics_from_results, print_metrics, plot_umap
 
 
 def main():
-    root_dir = "/home/ymd/github.com/ymd000/SFT_Meni"
+    data_dir = "test/data/embedding"
+    csv_path = "test/data/labels.csv"
+    output_dir = "./outputs"
+    image_dir = Path("test/data/image")
+    image_dir.mkdir(parents=True, exist_ok=True)
 
-    image_dir = "data/image"
-    image_dir_full = os.path.join(root_dir, image_dir)
-    os.makedirs(image_dir_full, exist_ok=True)
-
-    data_dir = "data/embedding"
-    data_dir_full = os.path.join(root_dir, data_dir)
-    csv_path = "data/label/case_labels_n69.csv"
-    csv_path_full = os.path.join(root_dir, csv_path)
-
-    encoder_name = "gigapath"
-
-    dataset = WSIDataset(data_dir_full, encoder_name, csv_path_full)
-
-    # for i in range(len(dataset)):
-    #     wsi, label = dataset[i]
-    #     print(f"WSI {i}: {wsi.shape}, Label {i}: {label}")
-
+    encoder_name = "uni"
     model_name = "abmil"
     model_config = f"{model_name}.base.{encoder_name}.none"
-
     model_kwargs = {"num_classes": 2, "model_config": model_config}
 
-    num_fold = 5
-
-    # print("\n" + "=" * 50)
-    # print("Train with CrossValidationTrainer")
-    # print("=" * 50)
-    #
-    # trainer = CrossValidationTrainer(
-    #     model_class=MILModel,
-    #     model_kwargs=model_kwargs,
-    #     dataset=dataset,
-    #     num_fold=num_fold,
-    #     output_dir="./outputs"
-    # )
-    # trainer.run()
-
-    print("\n" + "=" * 50)
-    print("Inference with SlideEmbeddingCalculator")
-    print("=" * 50)
+    dataset = WSIDataset(data_dir, encoder_name, csv_path)
+    print(f"Dataset: {len(dataset)} samples")
 
     calculator = SlideEmbeddingCalculator(
         model_class=MILModel,
         model_kwargs=model_kwargs,
-        output_dir="./outputs",
+        output_dir=output_dir,
         device="cpu",
     )
     calculator.load_models(checkpoint_name="best")
 
-    # Compute slide embeddings and save to HDF5 files
-    # Saved under 'slide_embedding/{model_name}/' in each HDF5 file
-    results = calculator.compute_and_save(dataset, use_val_fold=True)
+    class_names = {0: "Class0", 1: "Class1"}
 
-    slide_embeddings = results["embeddings"]
-    labels = results["labels"]
-    predictions = results["predictions"]
-    probabilities = results["probabilities"]
-    indices = results["indices"]
-
-    print(f"\nSlide embeddings shape: {slide_embeddings.shape}")
-    print(f"Labels shape: {labels.shape}")
-
-    # Print classification metrics
-    # class_names: mapping from label index to display name
-    # positive_class: which label to treat as positive (for sensitivity/specificity)
-    class_names = {0: "Benign", 1: "Malignant"}
-    metrics = compute_metrics_from_results(
-        results,
-        positive_class=1,
-        class_names=class_names,
-    )
-    print_metrics(metrics, title="Classification Metrics")
-
-    # # Preview generation (optional - uncomment if needed)
-    # print("\n" + "=" * 50)
-    # print("Generating attention previews")
-    # print("=" * 50)
-    # previewer = PreviewAttention(size=64, model_name=encoder_name)
-    # preview_dir = os.path.join(image_dir_full, "preview")
-    # os.makedirs(preview_dir, exist_ok=True)
-    #
-    # for fold_idx in range(calculator.predictor.num_folds):
-    #     _, val_indices = calculator.predictor.get_fold_indices(fold_idx)
-    #     for idx in val_indices:
-    #         x, label = dataset[idx]
-    #         result = calculator.compute(x, fold_idx)
-    #         att = result["attention"]
-    #         h5_path = str(dataset.h5_files[idx])
-    #         img = previewer(h5_path, attention_scores=att.numpy())
-    #         preview_path = os.path.join(preview_dir, f"sample_{idx}_preview.jpg")
-    #         img.save(preview_path)
-    #         print(f"  Saved: {preview_path}")
-        
-    # UMAP visualization
+    # ==============================
+    # ABMIL (attention-weighted sum)
+    # ==============================
     print("\n" + "=" * 50)
-    print("UMAP Visualization")
+    print("Inference: ABMIL (attention-weighted sum)")
     print("=" * 50)
 
-    umap_model = umap.UMAP(n_components=2, n_neighbors=15, min_dist=0.1, random_state=42)
-    slide_umap = umap_model.fit_transform(slide_embeddings)
+    results_abmil = calculator.compute_and_save(
+        dataset, use_val_fold=True, save_attention=True, save_prediction=True
+    )
+    print(f"Embeddings shape: {results_abmil['embeddings'].shape}")
 
-    # Get case names from dataset (use h5 file stem as case ID)
-    case_names = [dataset.h5_files[idx].stem for idx in indices]
+    metrics = compute_metrics_from_results(
+        results_abmil, positive_class=1, class_names=class_names
+    )
+    print_metrics(metrics, title="ABMIL Metrics")
 
-    plt.figure(figsize=(12, 10))
+    # ==============================
+    # nearest_cosine
+    # ==============================
+    print("\n" + "=" * 50)
+    print("Inference: nearest_cosine")
+    print("=" * 50)
 
-    # Identify misclassified samples
-    misclassified = predictions != labels
+    results_cos = calculator.compute_and_save_strategy(
+        dataset, strategy="nearest_cosine"
+    )
+    print(f"Embeddings shape: {results_cos['embeddings'].shape}")
+    print(f"Selected indices (first 5): {results_cos['selected_indices'][:5]}")
 
-    num_classes = len(np.unique(labels))
-    for i in range(num_classes):
-        mask = labels == i
-        label_name = class_names.get(i, f"Class {i}")
-        plt.scatter(
-            slide_umap[mask, 0],
-            slide_umap[mask, 1],
-            label=label_name,
-            alpha=0.7,
-            s=100,
+    # ==============================
+    # nearest_euclidean
+    # ==============================
+    print("\n" + "=" * 50)
+    print("Inference: nearest_euclidean")
+    print("=" * 50)
+
+    results_euc = calculator.compute_and_save_strategy(
+        dataset, strategy="nearest_euclidean"
+    )
+    print(f"Embeddings shape: {results_euc['embeddings'].shape}")
+    print(f"Selected indices (first 5): {results_euc['selected_indices'][:5]}")
+
+    # ==============================
+    # top_attention
+    # ==============================
+    print("\n" + "=" * 50)
+    print("Inference: top_attention")
+    print("=" * 50)
+
+    results_top = calculator.compute_and_save_strategy(
+        dataset, strategy="top_attention", use_val_fold=True
+    )
+    print(f"Embeddings shape: {results_top['embeddings'].shape}")
+    print(f"Predictions: {results_top['predictions']}")
+    print(f"Selected indices (first 5): {results_top['selected_indices'][:5]}")
+
+    # ==============================
+    # UMAP for each strategy
+    # ==============================
+    strategies = {
+        "abmil": results_abmil,
+        "nearest_cosine": results_cos,
+        "nearest_euclidean": results_euc,
+        "top_attention": results_top,
+    }
+
+    for strategy_name, results in strategies.items():
+        umap_data = {
+            "embeddings": results["embeddings"],
+            "labels": results["labels"],
+            "predictions": results.get("predictions"),
+        }
+        plot_umap(
+            umap_data,
+            output_path=image_dir / f"umap_{strategy_name}.jpeg",
+            class_names=class_names,
+            title=f"UMAP - {strategy_name}",
         )
 
-    # Draw red circles around misclassified points
-    if np.any(misclassified):
-        plt.scatter(
-            slide_umap[misclassified, 0],
-            slide_umap[misclassified, 1],
-            facecolors="none",
-            edgecolors="red",
-            linewidths=2,
-            s=250,
-            label="Misclassified",
+    # ==============================
+    # Verify HDF5 loading
+    # ==============================
+    print("\n" + "=" * 50)
+    print("Verify HDF5 loading")
+    print("=" * 50)
+
+    h5_path = dataset.h5_files[0]
+    print("\n--- First HDF5 file ---")
+    for name in ["abmil", "nearest_cosine", "nearest_euclidean", "abmil_top_attention"]:
+        data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), name)
+        parts = [f"embedding={data['embedding'].shape}"]
+        if "attention" in data:
+            parts.append(f"attention={data['attention'].shape}")
+        if "prediction" in data:
+            parts.append(f"prediction={data['prediction']}")
+        if "selected_index" in data:
+            parts.append(f"selected_index={data['selected_index']}")
+        print(f"  {name}: {', '.join(parts)}")
+
+    print("\n--- All HDF5 files ---")
+    for name in ["abmil", "nearest_cosine", "nearest_euclidean", "abmil_top_attention"]:
+        loaded = SlideEmbeddingCalculator.load_dataset_embeddings(
+            data_dir, name, csv_path
         )
-
-    # Annotate each point with case name
-    for j, (x, y) in enumerate(slide_umap):
-        plt.annotate(
-            case_names[j],
-            (x, y),
-            fontsize=7,
-            alpha=0.8,
-            xytext=(3, 3),
-            textcoords="offset points",
-        )
-
-    plt.legend(loc="best", fontsize=10)
-    plt.title("UMAP Visualization of Slide Embeddings")
-    plt.xlabel("UMAP Dimension 1")
-    plt.ylabel("UMAP Dimension 2")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-
-    umap_path = os.path.join(image_dir_full, "umap.jpeg")
-    plt.savefig(umap_path, dpi=150)
-    print(f"Saved UMAP plot: {umap_path}")
+        print(f"  load_dataset_embeddings({name}): {loaded['embeddings'].shape}")
 
     print("\nDone.")
 
