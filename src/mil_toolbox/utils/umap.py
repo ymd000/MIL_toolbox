@@ -22,6 +22,7 @@ def plot_umap(
     figsize: tuple = (12, 10),
     annotate: bool = True,
     show_misclassified: bool = True,
+    title: str | None = None,
 ) -> None:
     """Generate UMAP visualization of slide embeddings.
 
@@ -36,6 +37,7 @@ def plot_umap(
         figsize: Figure size
         annotate: Whether to annotate points with case names
         show_misclassified: Whether to highlight misclassified samples
+        title: Plot title. If None, uses default.
     """
     if not HAS_UMAP:
         raise ImportError("umap-learn is required for UMAP visualization. Install with: pip install umap-learn")
@@ -101,7 +103,7 @@ def plot_umap(
             )
 
     plt.legend(loc="best", fontsize=10)
-    plt.title("UMAP Visualization of Slide Embeddings")
+    plt.title(title or "UMAP Visualization of Slide Embeddings")
     plt.xlabel("UMAP Dimension 1")
     plt.ylabel("UMAP Dimension 2")
     plt.grid(True, alpha=0.3)
