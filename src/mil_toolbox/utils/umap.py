@@ -21,8 +21,8 @@ def plot_umap(
     random_state: int = 42,
     figsize: tuple = (12, 10),
     annotate: bool = True,
-    show_misclassified: bool = True,
     title: str | None = None,
+    show_misclassified: bool = True,
 ) -> None:
     """Generate UMAP visualization of slide embeddings.
 
@@ -36,8 +36,9 @@ def plot_umap(
         random_state: Random seed for reproducibility
         figsize: Figure size
         annotate: Whether to annotate points with case names
-        show_misclassified: Whether to highlight misclassified samples
         title: Plot title. If None, uses default.
+        show_misclassified: Whether to show red circles around misclassified samples.
+                            Requires data['predictions'] to be set.
     """
     if not HAS_UMAP:
         raise ImportError("umap-learn is required for UMAP visualization. Install with: pip install umap-learn")
@@ -110,4 +111,5 @@ def plot_umap(
     plt.tight_layout()
 
     plt.savefig(output_path, dpi=150)
+    plt.close()
     print(f"Saved UMAP plot: {output_path}")

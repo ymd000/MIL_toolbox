@@ -50,6 +50,10 @@ def main():
     )
     print_metrics(metrics, title="ABMIL Metrics")
 
+    # Store ABMIL predictions for UMAP
+    abmil_predictions = results_abmil["predictions"]
+    abmil_labels = results_abmil["labels"]
+
     # ==============================
     # nearest_cosine
     # ==============================
@@ -87,8 +91,33 @@ def main():
         dataset, strategy="top_attention", use_val_fold=True
     )
     print(f"Embeddings shape: {results_top['embeddings'].shape}")
-    print(f"Predictions: {results_top['predictions']}")
     print(f"Selected indices (first 5): {results_top['selected_indices'][:5]}")
+
+    # ==============================
+    # nearest_attention_cosine
+    # ==============================
+    print("\n" + "=" * 50)
+    print("Inference: nearest_attention_cosine")
+    print("=" * 50)
+
+    results_att_cos = calculator.compute_and_save_strategy(
+        dataset, strategy="nearest_attention_cosine", use_val_fold=True
+    )
+    print(f"Embeddings shape: {results_att_cos['embeddings'].shape}")
+    print(f"Selected indices (first 5): {results_att_cos['selected_indices'][:5]}")
+
+    # ==============================
+    # nearest_attention_euclidean
+    # ==============================
+    print("\n" + "=" * 50)
+    print("Inference: nearest_attention_euclidean")
+    print("=" * 50)
+
+    results_att_euc = calculator.compute_and_save_strategy(
+        dataset, strategy="nearest_attention_euclidean", use_val_fold=True
+    )
+    print(f"Embeddings shape: {results_att_euc['embeddings'].shape}")
+    print(f"Selected indices (first 5): {results_att_euc['selected_indices'][:5]}")
 
     # ==============================
     # UMAP for each strategy
@@ -98,13 +127,15 @@ def main():
         "nearest_cosine": results_cos,
         "nearest_euclidean": results_euc,
         "top_attention": results_top,
+        "nearest_attention_cosine": results_att_cos,
+        "nearest_attention_euclidean": results_att_euc,
     }
 
     for strategy_name, results in strategies.items():
         umap_data = {
             "embeddings": results["embeddings"],
-            "labels": results["labels"],
-            "predictions": results.get("predictions"),
+            "labels": abmil_labels,
+            "predictions": abmil_predictions,
         }
         plot_umap(
             umap_data,
@@ -121,8 +152,17 @@ def main():
     print("=" * 50)
 
     h5_path = dataset.h5_files[0]
+    hdf5_names = [
+        "abmil",
+        "nearest_cosine",
+        "nearest_euclidean",
+        "abmil_top_attention",
+        "abmil_nearest_attention_cosine",
+        "abmil_nearest_attention_euclidean",
+    ]
+
     print("\n--- First HDF5 file ---")
-    for name in ["abmil", "nearest_cosine", "nearest_euclidean", "abmil_top_attention"]:
+    for name in hdf5_names:
         data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), name)
         parts = [f"embedding={data['embedding'].shape}"]
         if "attention" in data:
@@ -134,7 +174,7 @@ def main():
         print(f"  {name}: {', '.join(parts)}")
 
     print("\n--- All HDF5 files ---")
-    for name in ["abmil", "nearest_cosine", "nearest_euclidean", "abmil_top_attention"]:
+    for name in hdf5_names:
         loaded = SlideEmbeddingCalculator.load_dataset_embeddings(
             data_dir, name, csv_path
         )
