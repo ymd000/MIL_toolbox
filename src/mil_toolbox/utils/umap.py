@@ -77,18 +77,19 @@ def plot_umap(
             s=100,
         )
 
-    # Draw red circles around misclassified points
+    # Mark misclassified points with X
     if show_misclassified and predictions is not None:
         misclassified = predictions != labels
         if np.any(misclassified):
             plt.scatter(
                 slide_umap[misclassified, 0],
                 slide_umap[misclassified, 1],
-                facecolors="none",
-                edgecolors="red",
-                linewidths=2,
-                s=150,
+                marker="x",
+                c="red",
+                s=50,
+                linewidths=1.5,
                 label="Misclassified",
+                zorder=10,
             )
 
     # Annotate each point with case name
