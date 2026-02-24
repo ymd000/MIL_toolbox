@@ -1,8 +1,10 @@
-"""Classification metrics computation and reporting utilities."""
+"""Classification metrics computation, reporting, and visualization utilities."""
 
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def compute_confusion_matrix(
@@ -471,3 +473,84 @@ def metrics_to_dataframe(metrics: dict):
     }
 
     return pd.DataFrame(main_metrics)
+
+
+def plot_confusion_matrix(
+    cm: np.ndarray,
+    output_path: str | Path,
+    class_names: Optional[dict[int, str]] = None,
+    normalize: bool = False,
+    title: Optional[str] = None,
+    cmap: str = "Blues",
+    figsize: tuple = (8, 6),
+) -> None:
+    """Plot confusion matrix as a heatmap.
+
+    Args:
+        cm: Confusion matrix of shape (num_classes, num_classes),
+            where cm[i, j] = count of samples with true label i and predicted label j.
+            Use compute_confusion_matrix() to generate this.
+        output_path: Path to save the plot
+        class_names: Mapping from class index to display name
+                     e.g., {0: "Benign", 1: "Malignant"}
+        normalize: If True, normalize counts to percentages per true class (row-wise)
+        title: Plot title. If None, uses default.
+        cmap: Matplotlib colormap name
+        figsize: Figure size
+    """
+    num_classes = cm.shape[0]
+
+    if class_names is None:
+        class_names = {i: str(i) for i in range(num_classes)}
+
+    labels = [class_names.get(i, str(i)) for i in range(num_classes)]
+
+    if normalize:
+        row_sums = cm.sum(axis=1, keepdims=True)
+        plot_data = np.where(row_sums > 0, cm / row_sums, 0.0)
+        colorbar_label = "Proportion"
+    else:
+        plot_data = cm.astype(float)
+        colorbar_label = "Count"
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    im = ax.imshow(plot_data, interpolation="nearest", cmap=cmap, vmin=0)
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label(colorbar_label, fontsize=11)
+
+    ax.set_xticks(range(num_classes))
+    ax.set_yticks(range(num_classes))
+    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=10)
+    ax.set_yticklabels(labels, fontsize=10)
+
+    # Annotate each cell
+    thresh = plot_data.max() / 2.0
+    for i in range(num_classes):
+        for j in range(num_classes):
+            value = plot_data[i, j]
+            if normalize:
+                text = f"{value:.2f}\n({cm[i, j]})"
+            else:
+                text = str(cm[i, j])
+            ax.text(
+                j,
+                i,
+                text,
+                ha="center",
+                va="center",
+                fontsize=10,
+                color="white" if value > thresh else "black",
+            )
+
+    ax.set_xlabel("Predicted label", fontsize=12)
+    ax.set_ylabel("True label", fontsize=12)
+    ax.set_title(title or "Confusion Matrix", fontsize=13)
+
+    plt.tight_layout()
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"Saved confusion matrix: {output_path}")

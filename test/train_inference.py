@@ -5,7 +5,13 @@ from pathlib import Path
 from mil_toolbox.data import WSIDataset
 from mil_toolbox.models import MILModel
 from mil_toolbox.inference import SlideEmbeddingCalculator
-from mil_toolbox.utils import compute_metrics_from_results, print_metrics, plot_umap
+from mil_toolbox.utils import (
+    compute_metrics_from_results,
+    compute_confusion_matrix,
+    print_metrics,
+    plot_umap,
+    plot_confusion_matrix,
+)
 
 
 def main():
@@ -49,6 +55,21 @@ def main():
         results_abmil, positive_class=1, class_names=class_names
     )
     print_metrics(metrics, title="ABMIL Metrics")
+
+    cm = compute_confusion_matrix(results_abmil["labels"], results_abmil["predictions"])
+    plot_confusion_matrix(
+        cm,
+        output_path=image_dir / "confusion_matrix_abmil.png",
+        class_names=class_names,
+        title="ABMIL - Confusion Matrix",
+    )
+    plot_confusion_matrix(
+        cm,
+        output_path=image_dir / "confusion_matrix_abmil_normalized.png",
+        class_names=class_names,
+        normalize=True,
+        title="ABMIL - Confusion Matrix (Normalized)",
+    )
 
     # Store ABMIL predictions for UMAP
     abmil_predictions = results_abmil["predictions"]

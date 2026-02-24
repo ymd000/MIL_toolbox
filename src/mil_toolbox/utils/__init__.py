@@ -10,6 +10,7 @@ from .metrics import (
     format_metrics_table,
     print_metrics,
     metrics_to_dataframe,
+    plot_confusion_matrix,
 )
 from .umap import plot_umap
 
@@ -25,6 +26,7 @@ __all__ = [
     "print_metrics",
     "metrics_to_dataframe",
     "plot_umap",
+    "plot_confusion_matrix",
     "PreviewAttention",
     "generate_attention_previews",
 ]
