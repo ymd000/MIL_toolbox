@@ -106,7 +106,7 @@ class MILPredictor:
     def predict_ensemble(
         self,
         x: torch.Tensor,
-        return_attention: bool = True,
+        return_attention: bool = False,
         aggregation: str = "mean",
     ) -> dict:
         """Predict using ensemble of all fold models.
