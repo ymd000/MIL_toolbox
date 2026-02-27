@@ -102,40 +102,40 @@ def main():
     print(f"Selected indices (first 5): {results_euc['selected_indices'][:5]}")
 
     # ==============================
-    # top_attention
+    # attention_top
     # ==============================
     print("\n" + "=" * 50)
-    print("Inference: top_attention")
+    print("Inference: attention_top")
     print("=" * 50)
 
     results_top = calculator.compute_and_save_strategy(
-        dataset, strategy="top_attention", use_val_fold=True
+        dataset, strategy="attention_top", use_val_fold=True
     )
     print(f"Embeddings shape: {results_top['embeddings'].shape}")
     print(f"Selected indices (first 5): {results_top['selected_indices'][:5]}")
 
     # ==============================
-    # nearest_attention_cosine
+    # attention_nearest_cosine
     # ==============================
     print("\n" + "=" * 50)
-    print("Inference: nearest_attention_cosine")
+    print("Inference: attention_nearest_cosine")
     print("=" * 50)
 
     results_att_cos = calculator.compute_and_save_strategy(
-        dataset, strategy="nearest_attention_cosine", use_val_fold=True
+        dataset, strategy="attention_nearest_cosine", use_val_fold=True
     )
     print(f"Embeddings shape: {results_att_cos['embeddings'].shape}")
     print(f"Selected indices (first 5): {results_att_cos['selected_indices'][:5]}")
 
     # ==============================
-    # nearest_attention_euclidean
+    # attention_nearest_euclidean
     # ==============================
     print("\n" + "=" * 50)
-    print("Inference: nearest_attention_euclidean")
+    print("Inference: attention_nearest_euclidean")
     print("=" * 50)
 
     results_att_euc = calculator.compute_and_save_strategy(
-        dataset, strategy="nearest_attention_euclidean", use_val_fold=True
+        dataset, strategy="attention_nearest_euclidean", use_val_fold=True
     )
     print(f"Embeddings shape: {results_att_euc['embeddings'].shape}")
     print(f"Selected indices (first 5): {results_att_euc['selected_indices'][:5]}")
@@ -147,9 +147,9 @@ def main():
         "abmil": results_abmil,
         "nearest_cosine": results_cos,
         "nearest_euclidean": results_euc,
-        "top_attention": results_top,
-        "nearest_attention_cosine": results_att_cos,
-        "nearest_attention_euclidean": results_att_euc,
+        "attention_top": results_top,
+        "attention_nearest_cosine": results_att_cos,
+        "attention_nearest_euclidean": results_att_euc,
     }
 
     for strategy_name, results in strategies.items():
@@ -177,9 +177,9 @@ def main():
         "abmil",
         "nearest_cosine",
         "nearest_euclidean",
-        "abmil_top_attention",
-        "abmil_nearest_attention_cosine",
-        "abmil_nearest_attention_euclidean",
+        "abmil_attention_top",
+        "abmil_attention_nearest_cosine",
+        "abmil_attention_nearest_euclidean",
     ]
 
     print("\n--- First HDF5 file ---")
