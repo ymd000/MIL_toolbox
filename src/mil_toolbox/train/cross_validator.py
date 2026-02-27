@@ -15,7 +15,7 @@ class CrossValidationTrainer:
         dataset,
         num_fold: int,
         output_dir: str = "./outputs",
-        num_workers: int = 4,
+        num_workers: int = 0,  # avoid copy overhead between subprocesses
         shuffle: bool = True,
         random_state: int = 42
     ):
