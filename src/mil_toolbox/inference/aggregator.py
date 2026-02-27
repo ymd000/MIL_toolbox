@@ -26,7 +26,7 @@ class SlideEmbeddingCalculator:
         calculator.load_models()
 
         # Single sample
-        slide_emb = calculator.compute(patch_embeddings, fold_idx=0)
+        slide_emb = calculator.compute_abmil(patch_embeddings, fold_idx=0)
 
         # Batch processing
         embeddings, labels = calculator.compute_dataset(dataset, use_val_fold=True)
@@ -74,7 +74,7 @@ class SlideEmbeddingCalculator:
         """
         self.predictor.load_models(checkpoint_name)
 
-    def compute(
+    def compute_abmil(
         self,
         patch_embeddings: torch.Tensor,
         fold_idx: int,
@@ -279,7 +279,7 @@ class SlideEmbeddingCalculator:
                 - selected_index: Index of the selected patch
         """
         # Get attention-weighted embedding
-        result = self.compute(patch_embeddings, fold_idx, normalize=False)
+        result = self.compute_abmil(patch_embeddings, fold_idx, normalize=False)
         attention_emb = result["slide_embedding"]
         attention = result["attention"]
 
@@ -329,7 +329,7 @@ class SlideEmbeddingCalculator:
                 - selected_index: Index of the selected patch
         """
         # Get attention-weighted embedding
-        result = self.compute(patch_embeddings, fold_idx, normalize=False)
+        result = self.compute_abmil(patch_embeddings, fold_idx, normalize=False)
         attention_emb = result["slide_embedding"]
         attention = result["attention"]
 
@@ -351,6 +351,120 @@ class SlideEmbeddingCalculator:
             "attention": attention,
             "probs": None,
             "pred_class": None,
+            "selected_index": selected_index,
+        }
+
+    def compute_attention_filtered_nearest_cosine(
+        self,
+        patch_embeddings: torch.Tensor,
+        fold_idx: int,
+        normalize: bool = False,
+        threshold_quantile: float = 0.5,
+    ) -> dict:
+        """Compute slide embedding from attention-filtered patches, nearest to their mean (cosine).
+
+        Selects patches with attention >= threshold_quantile quantile,
+        computes their mean embedding, then returns the patch with the
+        highest cosine similarity to that mean.
+
+        Args:
+            patch_embeddings: Tensor of shape (n_patches, embed_dim)
+            fold_idx: Fold index to use for attention computation
+            normalize: Whether to L2-normalize the output embedding
+            threshold_quantile: Quantile threshold for attention filtering (default: 0.5 = median)
+
+        Returns:
+            dict with keys:
+                - slide_embedding: Selected patch embedding (embed_dim,)
+                - attention: Full attention weights (n_patches,)
+                - probs: Prediction probabilities
+                - pred_class: Predicted class
+                - selected_index: Index of the selected patch
+        """
+        result = self.predictor.predict(patch_embeddings, fold_idx, return_attention=True)
+        attention = result["attention"]
+        if attention is None:
+            raise ValueError("Model did not return attention weights")
+        attention = attention.flatten()
+
+        if patch_embeddings.dim() == 3:
+            patch_embeddings = patch_embeddings.squeeze(0)
+
+        threshold = torch.quantile(attention, threshold_quantile)
+        mask = attention >= threshold
+        selected_patches = patch_embeddings[mask].cpu()
+
+        mean_emb = selected_patches.mean(dim=0)
+        similarities = F.cosine_similarity(selected_patches, mean_emb.unsqueeze(0), dim=1)
+        local_index = similarities.argmax().item()
+        selected_index = mask.nonzero(as_tuple=False)[local_index].item()
+        slide_embedding = patch_embeddings[selected_index].clone().cpu()
+
+        if normalize:
+            slide_embedding = slide_embedding / slide_embedding.norm()
+
+        return {
+            "slide_embedding": slide_embedding,
+            "attention": attention,
+            "probs": result["probs"],
+            "pred_class": result["pred_class"],
+            "selected_index": selected_index,
+        }
+
+    def compute_attention_filtered_nearest_euclidean(
+        self,
+        patch_embeddings: torch.Tensor,
+        fold_idx: int,
+        normalize: bool = False,
+        threshold_quantile: float = 0.5,
+    ) -> dict:
+        """Compute slide embedding from attention-filtered patches, nearest to their mean (Euclidean).
+
+        Selects patches with attention >= threshold_quantile quantile,
+        computes their mean embedding, then returns the patch with the
+        smallest Euclidean distance to that mean.
+
+        Args:
+            patch_embeddings: Tensor of shape (n_patches, embed_dim)
+            fold_idx: Fold index to use for attention computation
+            normalize: Whether to L2-normalize the output embedding
+            threshold_quantile: Quantile threshold for attention filtering (default: 0.5 = median)
+
+        Returns:
+            dict with keys:
+                - slide_embedding: Selected patch embedding (embed_dim,)
+                - attention: Full attention weights (n_patches,)
+                - probs: Prediction probabilities
+                - pred_class: Predicted class
+                - selected_index: Index of the selected patch
+        """
+        result = self.predictor.predict(patch_embeddings, fold_idx, return_attention=True)
+        attention = result["attention"]
+        if attention is None:
+            raise ValueError("Model did not return attention weights")
+        attention = attention.flatten()
+
+        if patch_embeddings.dim() == 3:
+            patch_embeddings = patch_embeddings.squeeze(0)
+
+        threshold = torch.quantile(attention, threshold_quantile)
+        mask = attention >= threshold
+        selected_patches = patch_embeddings[mask].cpu()
+
+        mean_emb = selected_patches.mean(dim=0)
+        distances = torch.cdist(mean_emb.unsqueeze(0), selected_patches).squeeze(0)
+        local_index = distances.argmin().item()
+        selected_index = mask.nonzero(as_tuple=False)[local_index].item()
+        slide_embedding = patch_embeddings[selected_index].clone().cpu()
+
+        if normalize:
+            slide_embedding = slide_embedding / slide_embedding.norm()
+
+        return {
+            "slide_embedding": slide_embedding,
+            "attention": attention,
+            "probs": result["probs"],
+            "pred_class": result["pred_class"],
             "selected_index": selected_index,
         }
 
@@ -428,14 +542,14 @@ class SlideEmbeddingCalculator:
 
                 for idx in val_indices:
                     x, label = dataset[idx]
-                    result = self.compute(x, fold_idx, normalize=normalize)
+                    result = self.compute_abmil(x, fold_idx, normalize=normalize)
                     embeddings.append(result["slide_embedding"].numpy())
                     labels.append(label)
         else:
             # Use fold 0 for all samples
             for idx in range(len(dataset)):
                 x, label = dataset[idx]
-                result = self.compute(x, fold_idx=0, normalize=normalize)
+                result = self.compute_abmil(x, fold_idx=0, normalize=normalize)
                 embeddings.append(result["slide_embedding"].numpy())
                 labels.append(label)
 
@@ -474,7 +588,7 @@ class SlideEmbeddingCalculator:
 
                 for idx in val_indices:
                     x, label = dataset[idx]
-                    result = self.compute(x, fold_idx, normalize=normalize)
+                    result = self.compute_abmil(x, fold_idx, normalize=normalize)
 
                     embeddings.append(result["slide_embedding"].numpy())
                     labels.append(label)
@@ -484,7 +598,7 @@ class SlideEmbeddingCalculator:
         else:
             for idx in range(len(dataset)):
                 x, label = dataset[idx]
-                result = self.compute(x, fold_idx=0, normalize=normalize)
+                result = self.compute_abmil(x, fold_idx=0, normalize=normalize)
 
                 embeddings.append(result["slide_embedding"].numpy())
                 labels.append(label)
@@ -588,7 +702,7 @@ class SlideEmbeddingCalculator:
 
                 for idx in val_indices:
                     x, label = dataset[idx]
-                    result = self.compute(x, fold_idx, normalize=normalize)
+                    result = self.compute_abmil(x, fold_idx, normalize=normalize)
 
                     slide_emb = result["slide_embedding"].numpy()
                     att = result["attention"].numpy() if result["attention"] is not None else None
@@ -615,7 +729,7 @@ class SlideEmbeddingCalculator:
         else:
             for idx in range(len(dataset)):
                 x, label = dataset[idx]
-                result = self.compute(x, fold_idx=0, normalize=normalize)
+                result = self.compute_abmil(x, fold_idx=0, normalize=normalize)
 
                 slide_emb = result["slide_embedding"].numpy()
                 att = result["attention"].numpy() if result["attention"] is not None else None
@@ -650,9 +764,15 @@ class SlideEmbeddingCalculator:
 
     _MODEL_FREE_STRATEGIES = {"nearest_cosine", "nearest_euclidean"}
     _MODEL_STRATEGIES = {
-        "top_attention",
-        "nearest_attention_cosine",
-        "nearest_attention_euclidean",
+        "attention_top",
+        "attention_nearest_cosine",
+        "attention_nearest_euclidean",
+        "attention_filtered_nearest_cosine",
+        "attention_filtered_nearest_euclidean",
+    }
+    _ATTENTION_FILTERED_STRATEGIES = {
+        "attention_filtered_nearest_cosine",
+        "attention_filtered_nearest_euclidean",
     }
     _ALL_STRATEGIES = _MODEL_FREE_STRATEGIES | _MODEL_STRATEGIES
 
@@ -663,15 +783,18 @@ class SlideEmbeddingCalculator:
         use_val_fold: bool = True,
         normalize: bool = False,
         save_attention: bool = True,
+        threshold_quantile: float = 0.5,
     ) -> dict:
         """Compute slide embeddings using a specified strategy and save to HDF5 files.
 
         Strategies:
             - "nearest_cosine": Patch nearest to mean by cosine similarity (no model needed)
             - "nearest_euclidean": Patch nearest to mean by Euclidean distance (no model needed)
-            - "top_attention": Patch with highest attention (model needed)
-            - "nearest_attention_cosine": Patch nearest to attention-weighted embedding by cosine
-            - "nearest_attention_euclidean": Patch nearest to attention-weighted embedding by Euclidean
+            - "attention_top": Patch with highest attention (model needed)
+            - "attention_nearest_cosine": Patch nearest to attention-weighted embedding by cosine
+            - "attention_nearest_euclidean": Patch nearest to attention-weighted embedding by Euclidean
+            - "attention_filtered_nearest_cosine": Patch nearest to mean of attention-filtered patches by cosine
+            - "attention_filtered_nearest_euclidean": Patch nearest to mean of attention-filtered patches by Euclidean
 
         Args:
             dataset: Dataset with h5_files attribute and __getitem__ returning (x, label)
@@ -679,6 +802,7 @@ class SlideEmbeddingCalculator:
             use_val_fold: Use validation fold model (only for model-dependent strategies)
             normalize: Whether to L2-normalize embeddings
             save_attention: Whether to save attention weights (model-dependent strategies only)
+            threshold_quantile: Quantile threshold for attention filtering (attention_filtered_* strategies only)
 
         Returns:
             dict with keys:
@@ -696,6 +820,9 @@ class SlideEmbeddingCalculator:
         # Determine HDF5 group name
         if strategy in self._MODEL_FREE_STRATEGIES:
             save_model_name = strategy
+        elif strategy in self._ATTENTION_FILTERED_STRATEGIES:
+            quantile_pct = int(threshold_quantile * 100)
+            save_model_name = f"{self.model_name}_{strategy}_q{quantile_pct}"
         else:
             save_model_name = f"{self.model_name}_{strategy}"
 
@@ -732,12 +859,23 @@ class SlideEmbeddingCalculator:
 
         else:
             # Model-dependent strategies
-            compute_fn_map = {
-                "top_attention": self.compute_top_attention,
-                "nearest_attention_cosine": self.compute_nearest_attention_cosine,
-                "nearest_attention_euclidean": self.compute_nearest_attention_euclidean,
-            }
-            compute_fn = compute_fn_map[strategy]
+            if strategy == "attention_filtered_nearest_cosine":
+                _tq = threshold_quantile
+                compute_fn = lambda x, fold_idx, normalize=False: self.compute_attention_filtered_nearest_cosine(
+                    x, fold_idx, normalize=normalize, threshold_quantile=_tq
+                )
+            elif strategy == "attention_filtered_nearest_euclidean":
+                _tq = threshold_quantile
+                compute_fn = lambda x, fold_idx, normalize=False: self.compute_attention_filtered_nearest_euclidean(
+                    x, fold_idx, normalize=normalize, threshold_quantile=_tq
+                )
+            else:
+                compute_fn_map = {
+                    "attention_top": self.compute_top_attention,
+                    "attention_nearest_cosine": self.compute_nearest_attention_cosine,
+                    "attention_nearest_euclidean": self.compute_nearest_attention_euclidean,
+                }
+                compute_fn = compute_fn_map[strategy]
 
             if use_val_fold:
                 for fold_idx in range(self.predictor.num_folds):
