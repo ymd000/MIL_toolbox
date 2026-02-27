@@ -38,7 +38,7 @@ class SlideEmbeddingCalculator:
         model_kwargs: dict,
         output_dir: str | Path,
         device: str = "auto",
-        model_name: str | None = None,
+        method_name: str | None = None,
     ):
         """Initialize the calculator.
 
@@ -47,8 +47,8 @@ class SlideEmbeddingCalculator:
             model_kwargs: Keyword arguments for model instantiation
             output_dir: Directory containing fold checkpoints
             device: Device to use ("auto", "cuda", "cpu")
-            model_name: Name for saving slide embeddings (e.g., "abmil").
-                        If None, extracted from model_config.
+            method_name: Name for saving slide embeddings (e.g., "abmil").
+                         If None, extracted from model_config.
         """
         self.predictor = MILPredictor(
             model_class=model_class,
@@ -57,14 +57,14 @@ class SlideEmbeddingCalculator:
             device=device,
         )
 
-        # Extract model name for HDF5 storage
-        if model_name is not None:
-            self.model_name = model_name
+        # Extract method name for HDF5 storage
+        if method_name is not None:
+            self.method_name = method_name
         elif "model_config" in model_kwargs:
             # Extract from model_config (e.g., "abmil.base.gigapath.none" -> "abmil")
-            self.model_name = model_kwargs["model_config"].split(".")[0]
+            self.method_name = model_kwargs["model_config"].split(".")[0]
         else:
-            self.model_name = "mil"
+            self.method_name = "mil"
 
     def load_models(self, checkpoint_name: str = "best") -> None:
         """Load models from all folds.
@@ -621,12 +621,12 @@ class SlideEmbeddingCalculator:
         attention: np.ndarray | None = None,
         prediction: int | None = None,
         probabilities: np.ndarray | None = None,
-        model_name: str | None = None,
+        method_name: str | None = None,
         selected_index: int | None = None,
     ) -> None:
         """Save slide embedding to existing HDF5 file.
 
-        Saves under 'slide_embedding/{model_name}/' group.
+        Saves under 'slide_embedding/{method_name}/' group.
 
         Args:
             h5_path: Path to the HDF5 file
@@ -634,13 +634,13 @@ class SlideEmbeddingCalculator:
             attention: Attention weights (optional)
             prediction: Predicted class (optional)
             probabilities: Prediction probabilities (optional)
-            model_name: Model name for group path. If None, uses self.model_name.
+            method_name: Method name for group path. If None, uses self.method_name.
             selected_index: Index of the selected patch (optional)
         """
-        if model_name is None:
-            model_name = self.model_name
+        if method_name is None:
+            method_name = self.method_name
 
-        group_path = f"slide_embedding/{model_name}"
+        group_path = f"slide_embedding/{method_name}"
 
         with h5py.File(h5_path, "a") as f:
             # Remove existing group if present
@@ -673,7 +673,7 @@ class SlideEmbeddingCalculator:
         """Compute slide embeddings and save to HDF5 files.
 
         Each slide embedding is saved to its corresponding HDF5 file
-        under 'slide_embedding/{model_name}/'.
+        under 'slide_embedding/{method_name}/'.
 
         Args:
             dataset: Dataset with h5_files attribute and __getitem__ returning (x, label)
@@ -819,12 +819,12 @@ class SlideEmbeddingCalculator:
 
         # Determine HDF5 group name
         if strategy in self._MODEL_FREE_STRATEGIES:
-            save_model_name = strategy
+            save_method_name = strategy
         elif strategy in self._ATTENTION_FILTERED_STRATEGIES:
             quantile_pct = int(threshold_quantile * 100)
-            save_model_name = f"{self.model_name}_{strategy}_q{quantile_pct}"
+            save_method_name = f"{self.method_name}_{strategy}_q{quantile_pct}"
         else:
-            save_model_name = f"{self.model_name}_{strategy}"
+            save_method_name = f"{self.method_name}_{strategy}"
 
         embeddings = []
         labels = []
@@ -847,7 +847,7 @@ class SlideEmbeddingCalculator:
                 self.save_to_hdf5(
                     h5_path=h5_path,
                     slide_embedding=slide_emb,
-                    model_name=save_model_name,
+                    method_name=save_method_name,
                     selected_index=result["selected_index"],
                 )
 
@@ -893,7 +893,7 @@ class SlideEmbeddingCalculator:
                             h5_path=h5_path,
                             slide_embedding=slide_emb,
                             attention=att if save_attention else None,
-                            model_name=save_model_name,
+                            method_name=save_method_name,
                             selected_index=result["selected_index"],
                         )
 
@@ -915,7 +915,7 @@ class SlideEmbeddingCalculator:
                         h5_path=h5_path,
                         slide_embedding=slide_emb,
                         attention=att if save_attention else None,
-                        model_name=save_model_name,
+                        method_name=save_method_name,
                         selected_index=result["selected_index"],
                     )
 
@@ -935,18 +935,18 @@ class SlideEmbeddingCalculator:
     @staticmethod
     def load_from_hdf5(
         h5_path: str | Path,
-        model_name: str,
+        method_name: str,
     ) -> dict:
         """Load slide embedding from HDF5 file.
 
         Args:
             h5_path: Path to the HDF5 file
-            model_name: Model name used when saving
+            method_name: Method name used when saving
 
         Returns:
             dict with keys: embedding, attention (if exists), prediction, probabilities
         """
-        group_path = f"slide_embedding/{model_name}"
+        group_path = f"slide_embedding/{method_name}"
 
         with h5py.File(h5_path, "r") as f:
             if group_path not in f:
@@ -974,14 +974,14 @@ class SlideEmbeddingCalculator:
     @staticmethod
     def load_dataset_embeddings(
         data_dir: str | Path,
-        model_name: str,
+        method_name: str,
         csv_path: str | Path,
     ) -> dict:
         """Load slide embeddings for all samples from HDF5 files.
 
         Args:
             data_dir: Directory containing HDF5 files
-            model_name: Model name used when saving (e.g., "abmil")
+            method_name: Method name used when saving (e.g., "abmil")
             csv_path: Path to CSV file with case_id and label columns
 
         Returns:
@@ -1015,7 +1015,7 @@ class SlideEmbeddingCalculator:
                 continue
 
             try:
-                data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), model_name)
+                data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), method_name)
             except KeyError:
                 print(f"Warning: No slide embedding for {case_id}, skipping.")
                 continue
