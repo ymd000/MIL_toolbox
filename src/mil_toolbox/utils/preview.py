@@ -6,9 +6,10 @@ import h5py
 import numpy as np
 from matplotlib import colors as mcolors
 from matplotlib import pyplot as plt
-from PIL import ImageFont
+from PIL import Image, ImageFont
 
 from wsi_toolbox.commands.preview import BasePreviewCommand
+from wsi_toolbox.patch_reader import get_patch_reader
 from wsi_toolbox.utils import create_frame, get_platform_font
 
 
@@ -95,3 +96,70 @@ def generate_attention_previews(
         print(f"  Saved: {preview_path}")
 
     print(f"\nPreviews saved to: {preview_dir}")
+
+
+def save_selected_patch_images(
+    data: dict,
+    method_name: str,
+    output_dir: str | Path,
+    patch_size: int = 256,
+) -> None:
+    """Save the selected representative patch image for each slide.
+
+    Reads selected_index stored by SlideEmbeddingCalculator and extracts
+    the corresponding patch image. Uses H5 cache if available, otherwise
+    falls back to the original WSI file in the same directory as the H5.
+
+    Args:
+        data: dict with keys 'h5_paths' and 'case_names'
+        method_name: Method name used when saving embeddings
+                     (e.g., "nearest_cosine", "abmil_attention_top")
+        output_dir: Directory to save patch images
+        patch_size: Patch size used in wsi_toolbox cache
+    """
+    print("\n" + "=" * 50)
+    print("Saving Selected Patch Images")
+    print("=" * 50)
+
+    output_dir = Path(output_dir)
+    patch_dir = output_dir / "selected_patches"
+    patch_dir.mkdir(parents=True, exist_ok=True)
+
+    group_path = f"slide_embedding/{method_name}"
+    cache_patches_path = f"cache/{patch_size}/patches"
+    cache_coords_path = f"cache/{patch_size}/coordinates"
+
+    for h5_path, case_name in zip(data["h5_paths"], data["case_names"]):
+        with h5py.File(h5_path, "r") as f:
+            if group_path not in f:
+                print(f"  Skipping {case_name}: no embedding for method '{method_name}'.")
+                continue
+
+            grp = f[group_path]
+            if "selected_index" not in grp.attrs:
+                print(f"  Skipping {case_name}: no selected_index.")
+                continue
+
+            selected_index = int(grp.attrs["selected_index"])
+
+            # If cache/patch_size/patches exists, read the patch image directly from H5.
+            # Otherwise, fall back to on-demand extraction from the original WSI file
+            # (wsi_toolbox searches for the WSI in the same directory as the H5).
+            if cache_patches_path in f:
+                patch_array = f[cache_patches_path][selected_index]
+                img = Image.fromarray(patch_array)
+                coord = None
+            else:
+                coord = tuple(int(v) for v in f[cache_coords_path][selected_index])
+                img = None
+
+        if img is None:
+            reader = get_patch_reader(str(h5_path), patch_size=patch_size)
+            patch_array = reader.get_patch_by_coord(coord)
+            img = Image.fromarray(patch_array)
+
+        out_path = patch_dir / f"{case_name}_{method_name}.jpeg"
+        img.save(out_path)
+        print(f"  Saved: {out_path}")
+
+    print(f"\nSelected patches saved to: {patch_dir}")
