@@ -1,9 +1,10 @@
-"""End-to-end test: inference with all slide embedding strategies using dummy data."""
+"""End-to-end test: training + inference with all slide embedding strategies."""
 
 from pathlib import Path
 
 from mil_toolbox.data import WSIDataset
 from mil_toolbox.models import MILModel
+from mil_toolbox.train import CrossValidationTrainer
 from mil_toolbox.inference import SlideEmbeddingCalculator
 from mil_toolbox.utils import (
     compute_metrics_from_results,
@@ -26,8 +27,36 @@ def main():
     model_config = f"{model_name}.base.{encoder_name}.none"
     model_kwargs = {"num_classes": 2, "model_config": model_config}
 
+    # ==============================
+    # Training
+    # ==============================
+    print("=" * 50)
+    print("Training")
+    print("=" * 50)
+
     dataset = WSIDataset(data_dir, encoder_name, csv_path)
     print(f"Dataset: {len(dataset)} samples")
+
+    cv_trainer = CrossValidationTrainer(
+        model_class=MILModel,
+        model_kwargs=model_kwargs,
+        dataset=dataset,
+        num_fold=5,
+        output_dir=output_dir,
+        max_epochs=2,
+    )
+    results_train = cv_trainer.run()
+
+    # config.yaml と version_X ディレクトリの確認
+    version_dir = cv_trainer.fold_manager.output_dir
+    config_path = version_dir / "config.yaml"
+    assert config_path.exists(), f"config.yaml not found: {config_path}"
+    print(f"config.yaml: {config_path}")
+    print(f"Best val losses: {[r['best_val_loss'] for r in results_train]}")
+
+    # ==============================
+    # Inference (version="latest" がデフォルト)
+    # ==============================
 
     calculator = SlideEmbeddingCalculator(
         model_class=MILModel,
@@ -36,6 +65,17 @@ def main():
         device="cpu",
     )
     calculator.load_models(checkpoint_name="best")
+
+    # version=0 で明示指定できることも確認
+    calculator_v0 = SlideEmbeddingCalculator(
+        model_class=MILModel,
+        model_kwargs=model_kwargs,
+        output_dir=output_dir,
+        version=0,
+        device="cpu",
+    )
+    calculator_v0.load_models(checkpoint_name="best")
+    print(f"version=0 loaded {calculator_v0.predictor.num_folds} folds")
 
     class_names = {0: "Class0", 1: "Class1"}
 
@@ -59,21 +99,19 @@ def main():
     cm = compute_confusion_matrix(results_abmil["labels"], results_abmil["predictions"])
     plot_confusion_matrix(
         cm,
-        output_path=image_dir / "confusion_matrix_abmil.png",
+        output_path=image_dir / "confusion_matrix_abmil.jpeg",
         class_names=class_names,
         title="ABMIL - Confusion Matrix",
     )
     plot_confusion_matrix(
         cm,
-        output_path=image_dir / "confusion_matrix_abmil_normalized.png",
+        output_path=image_dir / "confusion_matrix_abmil_normalized.jpeg",
         class_names=class_names,
         normalize=True,
         title="ABMIL - Confusion Matrix (Normalized)",
     )
 
-    # Store ABMIL predictions for UMAP
     abmil_predictions = results_abmil["predictions"]
-    abmil_labels = results_abmil["labels"]
 
     # ==============================
     # nearest_cosine
@@ -153,10 +191,11 @@ def main():
     }
 
     for strategy_name, results in strategies.items():
+        # predictions は ABMIL のみ持つ。他のstrategy は labels のみ使用
         umap_data = {
             "embeddings": results["embeddings"],
-            "labels": abmil_labels,
-            "predictions": abmil_predictions,
+            "labels": results["labels"],
+            "predictions": results.get("predictions"),
         }
         plot_umap(
             umap_data,

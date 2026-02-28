@@ -37,6 +37,7 @@ class SlideEmbeddingCalculator:
         model_class,
         model_kwargs: dict,
         output_dir: str | Path,
+        version: int | str = "latest",
         device: str = "auto",
         method_name: str | None = None,
     ):
@@ -45,7 +46,8 @@ class SlideEmbeddingCalculator:
         Args:
             model_class: Model class (e.g., MILModel)
             model_kwargs: Keyword arguments for model instantiation
-            output_dir: Directory containing fold checkpoints
+            output_dir: 訓練出力のベースディレクトリ
+            version: 使用するバージョン。"latest" で最新、int で version_X を指定
             device: Device to use ("auto", "cuda", "cpu")
             method_name: Name for saving slide embeddings (e.g., "abmil").
                          If None, extracted from model_config.
@@ -54,6 +56,7 @@ class SlideEmbeddingCalculator:
             model_class=model_class,
             model_kwargs=model_kwargs,
             output_dir=output_dir,
+            version=version,
             device=device,
         )
 

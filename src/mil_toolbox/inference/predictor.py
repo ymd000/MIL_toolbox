@@ -8,6 +8,30 @@ import torch
 from mil_toolbox.data import FoldManager
 
 
+def _resolve_version_dir(base_dir: Path, version: int | str) -> Path:
+    """バージョンディレクトリを解決する。
+
+    Args:
+        base_dir: 訓練出力のベースディレクトリ
+        version: "latest" または int (例: 0)
+
+    Returns:
+        解決されたバージョンディレクトリのパス
+    """
+    if version == "latest":
+        existing = sorted(
+            [d for d in base_dir.glob("version_*") if d.is_dir()],
+            key=lambda d: int(d.name.split("_")[1])
+        )
+        if not existing:
+            raise FileNotFoundError(f"No version directories found in {base_dir}")
+        resolved = existing[-1]
+        print(f"Using latest version: {resolved}")
+        return resolved
+    else:
+        return base_dir / f"version_{version}"
+
+
 class MILPredictor:
     """Cross-validation で学習した複数モデルを使った推論クラス.
 
@@ -15,8 +39,9 @@ class MILPredictor:
         predictor = MILPredictor(
             model_class=MILModel,
             model_kwargs={"num_classes": 2, "model_config": "abmil.base.gigapath.none"},
-            output_dir="./outputs"
+            output_dir="./outputs"              # version="latest" がデフォルト
         )
+        predictor = MILPredictor(..., version=0)  # version_0 を明示指定
         predictor.load_models(checkpoint_name="best")
 
         # Single fold prediction
@@ -31,6 +56,7 @@ class MILPredictor:
         model_class,
         model_kwargs: dict,
         output_dir: str | Path,
+        version: int | str = "latest",
         device: str = "auto",
     ):
         """Initialize the predictor.
@@ -38,12 +64,13 @@ class MILPredictor:
         Args:
             model_class: Model class (e.g., MILModel)
             model_kwargs: Keyword arguments for model instantiation
-            output_dir: Directory containing fold checkpoints
+            output_dir: 訓練出力のベースディレクトリ
+            version: 使用するバージョン。"latest" で最新、int で version_X を指定
             device: Device to use ("auto", "cuda", "cpu")
         """
         self.model_class = model_class
         self.model_kwargs = model_kwargs
-        self.output_dir = Path(output_dir)
+        self.output_dir = _resolve_version_dir(Path(output_dir), version)
 
         if device == "auto":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
