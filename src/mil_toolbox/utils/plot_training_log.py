@@ -21,13 +21,18 @@ def load_metrics(log_dir: Path, version: str | None = None) -> pd.DataFrame:
         DataFrame with metrics data
     """
     if version is None:
-        # Find the latest version
+        # CSVLogger(version="") places metrics.csv directly in log_dir
+        direct_path = log_dir / "metrics.csv"
+        if direct_path.exists():
+            return pd.read_csv(direct_path)
+
+        # Fallback: find the latest version_* subdirectory
         versions = sorted(
             [d for d in log_dir.glob("version_*") if d.is_dir()],
             key=lambda x: int(x.name.split("_")[1]),
         )
         if not versions:
-            raise FileNotFoundError(f"No version directories found in {log_dir}")
+            raise FileNotFoundError(f"No metrics.csv or version directories found in {log_dir}")
         version_dir = versions[-1]
     else:
         version_dir = log_dir / version
