@@ -20,9 +20,9 @@ def mil_collate_fn(batch: list[tuple[torch.Tensor, int]]):
 
     # マスク作成: 実パッチ位置を 1、パディング位置を 0
     max_n = padded.size(1)
-    mask = torch.zeros(len(features_list), max_n, dtype=torch.bool)
+    mask = torch.zeros(len(features_list), max_n, dtype=torch.float32)
     for i, feat in enumerate(features_list):
-        mask[i, :feat.size(0)] = True
+        mask[i, :feat.size(0)] = 1.0
 
     labels = torch.tensor(labels, dtype=torch.long)
 
