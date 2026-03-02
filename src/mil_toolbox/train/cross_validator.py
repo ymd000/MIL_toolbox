@@ -7,7 +7,7 @@ import lightning as L
 from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 
-from mil_toolbox.data import FoldManager
+from mil_toolbox.data import FoldManager, mil_collate_fn
 
 
 class CrossValidationTrainer:
@@ -19,6 +19,7 @@ class CrossValidationTrainer:
         num_fold: int,
         output_dir: str = "./outputs",
         max_epochs: int = 50,
+        batch_size: int = 1,
         devices: int = 1,
         num_workers: int = 0,  # avoid copy overhead between subprocesses
         shuffle: bool = True,
@@ -29,6 +30,7 @@ class CrossValidationTrainer:
         self.dataset = dataset
         self.num_fold = num_fold
         self.max_epochs = max_epochs
+        self.batch_size = batch_size
         self.devices = devices
         self.num_workers = num_workers
         self.shuffle = shuffle
@@ -52,6 +54,7 @@ class CrossValidationTrainer:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "num_fold": self.num_fold,
             "max_epochs": self.max_epochs,
+            "batch_size": self.batch_size,
             "devices": self.devices,
             "num_workers": self.num_workers,
             "shuffle": self.shuffle,
@@ -104,10 +107,12 @@ class CrossValidationTrainer:
         print(f"Train WSIs: {len(train_dataset)}, Val WSIs: {len(val_dataset)}")
 
         train_dataloader = DataLoader(
-            train_dataset, batch_size=1, shuffle=True, num_workers=self.num_workers
+            train_dataset, batch_size=self.batch_size, shuffle=True,
+            num_workers=self.num_workers, collate_fn=mil_collate_fn
         )
         val_dataloader = DataLoader(
-            val_dataset, batch_size=1, shuffle=False, num_workers=self.num_workers
+            val_dataset, batch_size=self.batch_size, shuffle=False,
+            num_workers=self.num_workers, collate_fn=mil_collate_fn
         )
 
         # fold毎のディレクトリ

@@ -23,15 +23,15 @@ class MILModel(L.LightningModule):
                     )
         self.loss_fn = nn.CrossEntropyLoss()
 
-    def forward(self, x, return_attention: bool = True):
-        results, log_dict = self.model(x, return_attention=return_attention)
+    def forward(self, x, mask=None, return_attention: bool = True):
+        results, log_dict = self.model(x, attn_mask=mask, return_attention=return_attention)
         logits = results['logits']
         attention = log_dict.get('attention', None) if return_attention else None
         return {'logits': logits, 'attention': attention}
 
     def training_step(self, batch):
-        x, y = batch
-        outputs = self(x)
+        x, mask, y = batch
+        outputs = self(x, mask=mask)
         logits = outputs['logits']
         loss = self.loss_fn(logits, y)
 
@@ -44,8 +44,8 @@ class MILModel(L.LightningModule):
         return loss
 
     def validation_step(self, batch):
-        x, y = batch
-        outputs = self(x)
+        x, mask, y = batch
+        outputs = self(x, mask=mask)
         logits = outputs['logits']
         loss = self.loss_fn(logits, y)
 
