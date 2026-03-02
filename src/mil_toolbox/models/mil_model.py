@@ -52,8 +52,8 @@ class MILModel(L.LightningModule):
         preds = torch.argmax(logits, dim=1)
         acc = (preds == y).float().mean()
 
-        self.log('val_loss', loss, prog_bar=True)
-        self.log('val_acc', acc, prog_bar=True)
+        self.log('val_loss', loss, prog_bar=True, sync_dist=True)
+        self.log('val_acc', acc, prog_bar=True, sync_dist=True)
 
         return loss
 
