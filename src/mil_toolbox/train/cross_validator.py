@@ -19,6 +19,7 @@ class CrossValidationTrainer:
         num_fold: int,
         output_dir: str = "./outputs",
         max_epochs: int = 50,
+        devices: int = 1,
         num_workers: int = 0,  # avoid copy overhead between subprocesses
         shuffle: bool = True,
         random_state: int = 42
@@ -28,6 +29,7 @@ class CrossValidationTrainer:
         self.dataset = dataset
         self.num_fold = num_fold
         self.max_epochs = max_epochs
+        self.devices = devices
         self.num_workers = num_workers
         self.shuffle = shuffle
         self.random_state = random_state
@@ -50,6 +52,7 @@ class CrossValidationTrainer:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "num_fold": self.num_fold,
             "max_epochs": self.max_epochs,
+            "devices": self.devices,
             "num_workers": self.num_workers,
             "shuffle": self.shuffle,
             "random_state": self.random_state,
@@ -60,6 +63,7 @@ class CrossValidationTrainer:
             yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
 
     def run(self):
+        torch.set_float32_matmul_precision('high')
         version_dir = self._get_version_dir()
         version_dir.mkdir(parents=True, exist_ok=True)
 
@@ -89,7 +93,10 @@ class CrossValidationTrainer:
         val_idx = fold_info.val_indices
 
         # 各foldでモデルを新規作成（重みを初期化）
-        model = self.model_class(**self.model_kwargs)
+        # devices数に応じてlrをスケール（linear scaling rule）
+        model_kwargs = dict(self.model_kwargs)
+        base_lr = model_kwargs.pop("lr", 1e-3)
+        model = self.model_class(lr=base_lr * self.devices, **model_kwargs)
 
         train_dataset = torch.utils.data.Subset(self.dataset, train_idx)
         val_dataset = torch.utils.data.Subset(self.dataset, val_idx)
@@ -127,7 +134,8 @@ class CrossValidationTrainer:
         trainer = L.Trainer(
             max_epochs=self.max_epochs,
             accelerator='auto',
-            devices=1,
+            devices=self.devices,
+            strategy="ddp" if self.devices > 1 else "auto",
             log_every_n_steps=1,
             logger=logger,
             callbacks=[checkpoint_callback]

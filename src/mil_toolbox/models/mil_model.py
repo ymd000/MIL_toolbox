@@ -9,10 +9,12 @@ class MILModel(L.LightningModule):
             self,
             num_classes: int,
             model_config: str,
+            lr: float = 1e-3,
             pretrained: bool = False,
             **model_kwargs
         ):
         super().__init__()
+        self.lr = lr
 
         self.model = create_model(
                         model_config,
@@ -56,5 +58,5 @@ class MILModel(L.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
