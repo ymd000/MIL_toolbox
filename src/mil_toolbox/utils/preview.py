@@ -292,7 +292,9 @@ def save_selected_patches(
     embed_h5_dir = Path(embed_h5_dir)
     ndpi_dir = Path(ndpi_dir)
     output_dir = Path(output_dir)
-    patch_dir = output_dir / f"selected_patches_{method_name}"
+    select_dir = output_dir / "selected_patches"
+    select_dir.mkdir(parents=True, exist_ok=True)
+    patch_dir = select_dir / f"{method_name}"
     patch_dir.mkdir(parents=True, exist_ok=True)
 
     group_path = f"slide_embedding/{method_name}"
