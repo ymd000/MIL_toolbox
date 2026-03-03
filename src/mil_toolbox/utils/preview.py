@@ -113,7 +113,7 @@ def save_selected_patch_images(
     Args:
         data: dict with keys 'h5_paths' and 'case_names'
         method_name: Method name used when saving embeddings
-                     (e.g., "nearest_cosine", "abmil_attention_top")
+                     (e.g., "nearest_cosine", "abmil_top")
         output_dir: Directory to save patch images
         patch_size: Patch size used in wsi_toolbox cache
     """
