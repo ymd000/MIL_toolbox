@@ -103,12 +103,17 @@ def save_selected_patch_images(
     method_name: str,
     output_dir: str | Path,
     patch_size: int = 256,
+    ndpi_dir: str | Path | None = None,
 ) -> None:
     """Save the selected representative patch image for each slide.
 
     Reads selected_index stored by SlideEmbeddingCalculator and extracts
-    the corresponding patch image. Uses H5 cache if available, otherwise
-    falls back to the original WSI file in the same directory as the H5.
+    the corresponding patch image.
+
+    Priority:
+    1. H5 cache (cache/{patch_size}/patches) — reads patch by index directly.
+    2. NDPI file matched by case_id from ndpi_dir — extracts patch via coordinate.
+    3. If ndpi_dir is None, falls back to WSI auto-discovery by wsi_toolbox.
 
     Args:
         data: dict with keys 'h5_paths' and 'case_names'
@@ -116,6 +121,9 @@ def save_selected_patch_images(
                      (e.g., "nearest_cosine", "abmil_top")
         output_dir: Directory to save patch images
         patch_size: Patch size used in wsi_toolbox cache
+        ndpi_dir: Directory containing NDPI files. Files are matched to cases
+                  by stem (i.e. ``{case_id}.ndpi``). Used when H5 cache is
+                  not available.
     """
     print("\n" + "=" * 50)
     print("Saving Selected Patch Images")
@@ -124,6 +132,12 @@ def save_selected_patch_images(
     output_dir = Path(output_dir)
     patch_dir = output_dir / "selected_patches"
     patch_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build case_id → ndpi path mapping up front
+    ndpi_map: dict[str, Path] = {}
+    if ndpi_dir is not None:
+        for ndpi_path in Path(ndpi_dir).glob("*.ndpi"):
+            ndpi_map[ndpi_path.stem] = ndpi_path
 
     group_path = f"slide_embedding/{method_name}"
     cache_patches_path = f"cache/{patch_size}/patches"
@@ -142,9 +156,7 @@ def save_selected_patch_images(
 
             selected_index = int(grp.attrs["selected_index"])
 
-            # If cache/patch_size/patches exists, read the patch image directly from H5.
-            # Otherwise, fall back to on-demand extraction from the original WSI file
-            # (wsi_toolbox searches for the WSI in the same directory as the H5).
+            # Priority 1: use cached patch image directly (fast, index-based)
             if cache_patches_path in f:
                 patch_array = f[cache_patches_path][selected_index]
                 img = Image.fromarray(patch_array)
@@ -154,7 +166,17 @@ def save_selected_patch_images(
                 img = None
 
         if img is None:
-            reader = get_patch_reader(str(h5_path), patch_size=patch_size)
+            # Priority 2: ndpi_dir specified → look up NDPI by case_id
+            if ndpi_dir is not None:
+                if case_name not in ndpi_map:
+                    print(f"  Skipping {case_name}: no NDPI file found in '{ndpi_dir}'.")
+                    continue
+                wsi_path = str(ndpi_map[case_name])
+            else:
+                # Priority 3: fall back to wsi_toolbox auto-discovery
+                wsi_path = None
+
+            reader = get_patch_reader(str(h5_path), wsi_path=wsi_path, patch_size=patch_size)
             patch_array = reader.get_patch_by_coord(coord)
             img = Image.fromarray(patch_array)
 
