@@ -4,6 +4,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import pandas as pd
 from matplotlib import colors as mcolors
 from matplotlib import pyplot as plt
 from PIL import Image, ImageFont
@@ -185,3 +186,78 @@ def save_selected_patch_images(
         print(f"  Saved: {out_path}")
 
     print(f"\nSelected patches saved to: {patch_dir}")
+
+
+def save_selected_patches(
+    csv_path: str | Path,
+    embed_h5_dir: str | Path,
+    ndpi_dir: str | Path,
+    method_name: str,
+    output_dir: str | Path,
+    patch_size: int = 256,
+) -> None:
+    """selected_indexのパッチ画像を保存する。
+
+    embed_h5_dir/{case_id}.h5 の slide_embedding/{method_name} から
+    selected_index を読み、coordinates[selected_index] の座標で
+    ndpi_dir/{case_id}.ndpi からパッチを抽出して保存する。
+
+    HDF5の座標は coordinates キー（ルート直下）から読む。
+
+    Args:
+        csv_path: case_id, label 列を含むCSVファイルのパス
+        embed_h5_dir: スライド埋め込みを含む HDF5 ディレクトリ
+        ndpi_dir: NDPI ファイルのディレクトリ
+        method_name: メソッド名 (例: "abmil_top", "abmil_nearest_cosine")
+        output_dir: パッチ画像の保存ディレクトリ
+        patch_size: パッチサイズ
+    """
+    print("\n" + "=" * 50)
+    print(f"Saving Selected Patches: {method_name}")
+    print("=" * 50)
+
+    embed_h5_dir = Path(embed_h5_dir)
+    ndpi_dir = Path(ndpi_dir)
+    output_dir = Path(output_dir)
+    patch_dir = output_dir / f"selected_patches_{method_name}"
+    patch_dir.mkdir(parents=True, exist_ok=True)
+
+    group_path = f"slide_embedding/{method_name}"
+    df = pd.read_csv(csv_path)
+
+    for _, row in df.iterrows():
+        case_id = row["case_id"]
+        h5_path = embed_h5_dir / f"{case_id}.h5"
+        ndpi_path = ndpi_dir / f"{case_id}.ndpi"
+
+        if not h5_path.exists():
+            print(f"  Skipping {case_id}: HDF5 not found.")
+            continue
+        if not ndpi_path.exists():
+            print(f"  Skipping {case_id}: NDPI not found.")
+            continue
+
+        with h5py.File(h5_path, "r") as f:
+            if group_path not in f:
+                print(f"  Skipping {case_id}: no embedding for '{method_name}'.")
+                continue
+
+            grp = f[group_path]
+            if "selected_index" not in grp.attrs:
+                print(f"  Skipping {case_id}: no selected_index.")
+                continue
+
+            selected_index = int(grp.attrs["selected_index"])
+            coord = tuple(int(v) for v in f["coordinates"][selected_index])
+
+        reader = get_patch_reader(
+            str(h5_path), wsi_path=str(ndpi_path), patch_size=patch_size
+        )
+        patch_array = reader.get_patch_by_coord(coord)
+        img = Image.fromarray(patch_array)
+
+        out_path = patch_dir / f"{case_id}.jpeg"
+        img.save(out_path)
+        print(f"  Saved: {out_path}")
+
+    print(f"\nDone. Patches saved to: {patch_dir}")
