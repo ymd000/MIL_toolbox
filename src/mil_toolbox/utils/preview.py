@@ -66,6 +66,9 @@ def generate_attention_previews(
 ) -> None:
     """Generate attention preview images for all samples.
 
+    H5ファイルとNDPIが同じディレクトリにある場合に使用する。
+    H5とNDPIが別ディレクトリの場合は generate_attention_previews_from_dir を使う。
+
     Args:
         data: dict with keys 'h5_paths', 'attentions', 'case_names'
         output_dir: Directory to save preview images
@@ -97,6 +100,75 @@ def generate_attention_previews(
         print(f"  Saved: {preview_path}")
 
     print(f"\nPreviews saved to: {preview_dir}")
+
+
+def generate_attention_previews_from_dir(
+    csv_path: str | Path,
+    embed_h5_dir: str | Path,
+    src_h5_dir: str | Path,
+    method_name: str,
+    output_dir: str | Path,
+    encoder_name: str = "uni",
+    preview_size: int = 64,
+) -> None:
+    """Attentionプレビュー画像を生成する（H5とNDPIが別ディレクトリの場合）。
+
+    embed_h5_dir/{case_id}.h5 の slide_embedding/{method_name}/attention から
+    attention スコアを読み、src_h5_dir/{case_id}.h5 をベースにプレビューを生成する。
+    src_h5_dir には対応する NDPI ファイルが置かれている必要がある
+    （BasePreviewCommand が同ディレクトリから自動探索するため）。
+
+    Args:
+        csv_path: case_id, label 列を含むCSVファイルのパス
+        embed_h5_dir: スライド埋め込み・attentionを含む HDF5 ディレクトリ
+        src_h5_dir: 座標・NDPI ファイルがある HDF5 ディレクトリ
+        method_name: メソッド名 (例: "abmil", "abmil_top")
+        output_dir: プレビュー画像の保存ディレクトリ
+        encoder_name: エンコーダ名 (例: "uni", "gigapath")
+        preview_size: プレビューのパッチサイズ
+    """
+    print("\n" + "=" * 50)
+    print(f"Generating Attention Previews: {method_name}")
+    print("=" * 50)
+
+    embed_h5_dir = Path(embed_h5_dir)
+    src_h5_dir = Path(src_h5_dir)
+    output_dir = Path(output_dir)
+    preview_dir = output_dir / f"preview_{method_name}"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+
+    group_path = f"slide_embedding/{method_name}"
+    previewer = PreviewAttention(size=preview_size, model_name=encoder_name)
+    df = pd.read_csv(csv_path)
+
+    for _, row in df.iterrows():
+        case_id = row["case_id"]
+        embed_h5 = embed_h5_dir / f"{case_id}.h5"
+        src_h5 = src_h5_dir / f"{case_id}.h5"
+
+        if not embed_h5.exists():
+            print(f"  Skipping {case_id}: embed HDF5 not found.")
+            continue
+        if not src_h5.exists():
+            print(f"  Skipping {case_id}: src HDF5 not found.")
+            continue
+
+        with h5py.File(embed_h5, "r") as f:
+            if group_path not in f:
+                print(f"  Skipping {case_id}: no embedding for '{method_name}'.")
+                continue
+            grp = f[group_path]
+            if "attention" not in grp:
+                print(f"  Skipping {case_id}: no attention weights.")
+                continue
+            attention = grp["attention"][:]
+
+        img = previewer(str(src_h5), attention_scores=attention)
+        preview_path = preview_dir / f"{case_id}.jpeg"
+        img.save(preview_path)
+        print(f"  Saved: {preview_path}")
+
+    print(f"\nDone. Previews saved to: {preview_dir}")
 
 
 def save_selected_patch_images(
