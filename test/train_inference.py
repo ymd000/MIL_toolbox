@@ -1,4 +1,4 @@
-"""End-to-end test: training + inference with all slide embedding strategies."""
+"""End-to-end test: training + inference with all slide embedding methods."""
 
 from pathlib import Path
 
@@ -80,14 +80,14 @@ def main():
     class_names = {0: "Class0", 1: "Class1"}
 
     # ==============================
-    # ABMIL (attention-weighted sum)
+    # abmil (attention-weighted sum)
     # ==============================
     print("\n" + "=" * 50)
-    print("Inference: ABMIL (attention-weighted sum)")
+    print("Inference: abmil (attention-weighted sum)")
     print("=" * 50)
 
     results_abmil = calculator.compute_and_save(
-        dataset, use_val_fold=True, save_attention=True, save_prediction=True
+        dataset, method="abmil", use_val_fold=True, save_attention=True, save_prediction=True
     )
     print(f"Embeddings shape: {results_abmil['embeddings'].shape}")
 
@@ -111,8 +111,6 @@ def main():
         title="ABMIL - Confusion Matrix (Normalized)",
     )
 
-    abmil_predictions = results_abmil["predictions"]
-
     # ==============================
     # nearest_cosine
     # ==============================
@@ -120,9 +118,7 @@ def main():
     print("Inference: nearest_cosine")
     print("=" * 50)
 
-    results_cos = calculator.compute_and_save_strategy(
-        dataset, strategy="nearest_cosine"
-    )
+    results_cos = calculator.compute_and_save(dataset, method="nearest_cosine")
     print(f"Embeddings shape: {results_cos['embeddings'].shape}")
     print(f"Selected indices (first 5): {results_cos['selected_indices'][:5]}")
 
@@ -133,65 +129,60 @@ def main():
     print("Inference: nearest_euclidean")
     print("=" * 50)
 
-    results_euc = calculator.compute_and_save_strategy(
-        dataset, strategy="nearest_euclidean"
-    )
+    results_euc = calculator.compute_and_save(dataset, method="nearest_euclidean")
     print(f"Embeddings shape: {results_euc['embeddings'].shape}")
     print(f"Selected indices (first 5): {results_euc['selected_indices'][:5]}")
 
     # ==============================
-    # attention_top
+    # abmil_top
     # ==============================
     print("\n" + "=" * 50)
-    print("Inference: attention_top")
+    print("Inference: abmil_top")
     print("=" * 50)
 
-    results_top = calculator.compute_and_save_strategy(
-        dataset, strategy="attention_top", use_val_fold=True
-    )
+    results_top = calculator.compute_and_save(dataset, method="abmil_top", use_val_fold=True)
     print(f"Embeddings shape: {results_top['embeddings'].shape}")
     print(f"Selected indices (first 5): {results_top['selected_indices'][:5]}")
 
     # ==============================
-    # attention_nearest_cosine
+    # abmil_nearest_cosine
     # ==============================
     print("\n" + "=" * 50)
-    print("Inference: attention_nearest_cosine")
+    print("Inference: abmil_nearest_cosine")
     print("=" * 50)
 
-    results_att_cos = calculator.compute_and_save_strategy(
-        dataset, strategy="attention_nearest_cosine", use_val_fold=True
+    results_att_cos = calculator.compute_and_save(
+        dataset, method="abmil_nearest_cosine", use_val_fold=True
     )
     print(f"Embeddings shape: {results_att_cos['embeddings'].shape}")
     print(f"Selected indices (first 5): {results_att_cos['selected_indices'][:5]}")
 
     # ==============================
-    # attention_nearest_euclidean
+    # abmil_nearest_euclidean
     # ==============================
     print("\n" + "=" * 50)
-    print("Inference: attention_nearest_euclidean")
+    print("Inference: abmil_nearest_euclidean")
     print("=" * 50)
 
-    results_att_euc = calculator.compute_and_save_strategy(
-        dataset, strategy="attention_nearest_euclidean", use_val_fold=True
+    results_att_euc = calculator.compute_and_save(
+        dataset, method="abmil_nearest_euclidean", use_val_fold=True
     )
     print(f"Embeddings shape: {results_att_euc['embeddings'].shape}")
     print(f"Selected indices (first 5): {results_att_euc['selected_indices'][:5]}")
 
     # ==============================
-    # UMAP for each strategy
+    # UMAP for each method
     # ==============================
-    strategies = {
+    methods = {
         "abmil": results_abmil,
         "nearest_cosine": results_cos,
         "nearest_euclidean": results_euc,
-        "attention_top": results_top,
-        "attention_nearest_cosine": results_att_cos,
-        "attention_nearest_euclidean": results_att_euc,
+        "abmil_top": results_top,
+        "abmil_nearest_cosine": results_att_cos,
+        "abmil_nearest_euclidean": results_att_euc,
     }
 
-    for strategy_name, results in strategies.items():
-        # predictions は ABMIL のみ持つ。他のstrategy は labels のみ使用
+    for method_name, results in methods.items():
         umap_data = {
             "embeddings": results["embeddings"],
             "labels": results["labels"],
@@ -199,9 +190,9 @@ def main():
         }
         plot_umap(
             umap_data,
-            output_path=image_dir / f"umap_{strategy_name}.jpeg",
+            output_path=image_dir / f"umap_{method_name}.jpeg",
             class_names=class_names,
-            title=f"UMAP - {strategy_name}",
+            title=f"UMAP - {method_name}",
         )
 
     # ==============================
@@ -216,9 +207,9 @@ def main():
         "abmil",
         "nearest_cosine",
         "nearest_euclidean",
-        "abmil_attention_top",
-        "abmil_attention_nearest_cosine",
-        "abmil_attention_nearest_euclidean",
+        "abmil_top",
+        "abmil_nearest_cosine",
+        "abmil_nearest_euclidean",
     ]
 
     print("\n--- First HDF5 file ---")
