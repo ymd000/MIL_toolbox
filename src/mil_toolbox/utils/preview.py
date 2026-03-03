@@ -194,15 +194,14 @@ def save_selected_patches(
     ndpi_dir: str | Path,
     method_name: str,
     output_dir: str | Path,
+    encoder_name: str = "uni",
     patch_size: int = 256,
 ) -> None:
     """selected_indexのパッチ画像を保存する。
 
     embed_h5_dir/{case_id}.h5 の slide_embedding/{method_name} から
-    selected_index を読み、coordinates[selected_index] の座標で
+    selected_index を読み、{encoder_name}/coordinates[selected_index] の座標で
     ndpi_dir/{case_id}.ndpi からパッチを抽出して保存する。
-
-    HDF5の座標は coordinates キー（ルート直下）から読む。
 
     Args:
         csv_path: case_id, label 列を含むCSVファイルのパス
@@ -210,6 +209,8 @@ def save_selected_patches(
         ndpi_dir: NDPI ファイルのディレクトリ
         method_name: メソッド名 (例: "abmil_top", "abmil_nearest_cosine")
         output_dir: パッチ画像の保存ディレクトリ
+        encoder_name: エンコーダ名 (例: "uni", "gigapath") — 座標の読み出し先
+                      {encoder_name}/coordinates から取得する
         patch_size: パッチサイズ
     """
     print("\n" + "=" * 50)
@@ -248,7 +249,7 @@ def save_selected_patches(
                 continue
 
             selected_index = int(grp.attrs["selected_index"])
-            coord = tuple(int(v) for v in f["coordinates"][selected_index])
+            coord = tuple(int(v) for v in f[f"{encoder_name}/coordinates"][selected_index])
 
         reader = get_patch_reader(
             str(h5_path), wsi_path=str(ndpi_path), patch_size=patch_size

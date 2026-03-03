@@ -517,6 +517,10 @@ class SlideEmbeddingCalculator:
             - "nearest_cosine": Patch nearest to mean by cosine (no model)
             - "nearest_euclidean": Patch nearest to mean by Euclidean (no model)
 
+        For patch-selecting methods (*_top, *_nearest_*, nearest_*), selected_index is
+        saved to HDF5 as grp.attrs["selected_index"] and included in the return value.
+        This enables direct use with save_selected_patch_images() for patch preview.
+
         Args:
             dataset: Dataset with h5_files attribute and __getitem__ returning (x, label)
             method: Embedding method name (also used as HDF5 group name).
@@ -533,8 +537,11 @@ class SlideEmbeddingCalculator:
                 - labels: np.ndarray of shape (n_samples,)
                 - predictions: np.ndarray or None
                 - probabilities: np.ndarray or None
-                - selected_indices: list or None
+                - selected_indices: list or None (non-None for patch-selecting methods)
+                - attentions: list of attention arrays or None
                 - indices: list of dataset indices
+                - h5_paths: list of Path objects (for use with save_selected_patch_images)
+                - case_names: list of case IDs (for use with save_selected_patch_images)
         """
         if method is None:
             method = self.mil_model_name
@@ -547,7 +554,10 @@ class SlideEmbeddingCalculator:
         predictions = []
         probabilities = []
         selected_indices = []
+        attentions = []
         indices = []
+        h5_paths = []
+        case_names = []
 
         if is_model_free or not use_val_fold:
             fold_iter = [(None, list(range(len(dataset))))]
@@ -588,13 +598,17 @@ class SlideEmbeddingCalculator:
                 predictions.append(pred)
                 probabilities.append(probs)
                 selected_indices.append(sel_idx)
+                attentions.append(att)
                 indices.append(idx)
+                h5_paths.append(h5_path)
+                case_names.append(h5_path.stem)
 
                 print(f"Saved slide embedding ({method}) to {h5_path}")
 
         has_predictions = any(p is not None for p in predictions)
         has_probabilities = any(p is not None for p in probabilities)
         has_selected = any(s is not None for s in selected_indices)
+        has_attentions = any(a is not None for a in attentions)
 
         return {
             "embeddings": np.array(embeddings),
@@ -602,7 +616,10 @@ class SlideEmbeddingCalculator:
             "predictions": np.array(predictions) if has_predictions else None,
             "probabilities": np.array(probabilities) if has_probabilities else None,
             "selected_indices": selected_indices if has_selected else None,
+            "attentions": attentions if has_attentions else None,
             "indices": indices,
+            "h5_paths": h5_paths,
+            "case_names": case_names,
         }
 
     def _resolve_compute_fn(self, method: str, threshold_quantile: float = 0.5):
