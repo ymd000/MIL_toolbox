@@ -628,12 +628,12 @@ class SlideEmbeddingCalculator:
         filtered_cosine = f"{mn}_filtered_nearest_cosine"
         filtered_euclidean = f"{mn}_filtered_nearest_euclidean"
 
-        if method == filtered_cosine:
+        if method == filtered_cosine or method.startswith(filtered_cosine):
             _tq = threshold_quantile
             return lambda x, fold_idx, normalize=False: self.compute_abmil_filtered_nearest_cosine(
                 x, fold_idx, normalize=normalize, threshold_quantile=_tq
             )
-        if method == filtered_euclidean:
+        if method == filtered_euclidean or method.startswith(filtered_euclidean):
             _tq = threshold_quantile
             return lambda x, fold_idx, normalize=False: self.compute_abmil_filtered_nearest_euclidean(
                 x, fold_idx, normalize=normalize, threshold_quantile=_tq
