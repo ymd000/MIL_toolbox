@@ -41,7 +41,7 @@ def main():
     print("=" * 50)
 
     results_abmil = calculator.compute_and_save(
-        dataset, use_val_fold=True, save_attention=True, save_prediction=True
+        dataset, method=model_name, use_val_fold=True, save_attention=True, save_prediction=True
     )
     base_labels = results_abmil["labels"]
     base_predictions = results_abmil["predictions"]
@@ -49,24 +49,20 @@ def main():
     # ==============================
     # Model-free strategies
     # ==============================
-    results_cos = calculator.compute_and_save_strategy(
-        dataset, strategy="nearest_cosine"
-    )
-    results_euc = calculator.compute_and_save_strategy(
-        dataset, strategy="nearest_euclidean"
-    )
+    results_cos = calculator.compute_and_save(dataset, method="nearest_cosine")
+    results_euc = calculator.compute_and_save(dataset, method="nearest_euclidean")
 
     # ==============================
     # Model-dependent strategies
     # ==============================
-    results_top = calculator.compute_and_save_strategy(
-        dataset, strategy="attention_top", use_val_fold=True
+    results_top = calculator.compute_and_save(
+        dataset, method=f"{model_name}_top", use_val_fold=True
     )
-    results_att_cos = calculator.compute_and_save_strategy(
-        dataset, strategy="attention_nearest_cosine", use_val_fold=True
+    results_att_cos = calculator.compute_and_save(
+        dataset, method=f"{model_name}_nearest_cosine", use_val_fold=True
     )
-    results_att_euc = calculator.compute_and_save_strategy(
-        dataset, strategy="attention_nearest_euclidean", use_val_fold=True
+    results_att_euc = calculator.compute_and_save(
+        dataset, method=f"{model_name}_nearest_euclidean", use_val_fold=True
     )
 
     # ==============================
@@ -78,11 +74,11 @@ def main():
     for tq in threshold_quantiles:
         pct = int(tq * 100)
         for metric in ("cosine", "euclidean"):
-            strategy = f"attention_filtered_nearest_{metric}"
-            key = f"{strategy}_q{pct}"
-            results_filtered[key] = calculator.compute_and_save_strategy(
+            method = f"{model_name}_filtered_nearest_{metric}"
+            key = f"{method}_q{pct}"
+            results_filtered[key] = calculator.compute_and_save(
                 dataset,
-                strategy=strategy,
+                method=method,
                 use_val_fold=True,
                 threshold_quantile=tq,
             )
@@ -95,12 +91,12 @@ def main():
     print("=" * 50)
 
     base_strategies = {
-        "abmil": results_abmil,
+        model_name: results_abmil,
         "nearest_cosine": results_cos,
         "nearest_euclidean": results_euc,
-        "attention_top": results_top,
-        "attention_nearest_cosine": results_att_cos,
-        "attention_nearest_euclidean": results_att_euc,
+        f"{model_name}_top": results_top,
+        f"{model_name}_nearest_cosine": results_att_cos,
+        f"{model_name}_nearest_euclidean": results_att_euc,
     }
 
     for strategy_name, results in base_strategies.items():

@@ -1,5 +1,6 @@
 """UMAP visualization utilities for MIL analysis."""
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -60,8 +61,15 @@ def plot_umap(
         n_neighbors=n_neighbors,
         min_dist=min_dist,
         random_state=random_state,
+        n_jobs=1,
     )
-    slide_umap = umap_model.fit_transform(embeddings)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="n_jobs value .* overridden to 1 by setting random_state",
+            category=UserWarning,
+        )
+        slide_umap = umap_model.fit_transform(embeddings)
 
     plt.figure(figsize=figsize)
 

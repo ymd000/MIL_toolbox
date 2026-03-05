@@ -9,8 +9,10 @@ from pathlib import Path
 
 FEATURE_DIMS = {
     "uni": 1024,
+    "uni2": 1536,
     "gigapath": 1536,
     "virchow2": 2560,
+    "conch15": 768,
 }
 
 class WSIDataset(Dataset):
