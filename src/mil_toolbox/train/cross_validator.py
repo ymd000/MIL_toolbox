@@ -20,6 +20,7 @@ class CrossValidationTrainer:
         output_dir: str = "./outputs",
         max_epochs: int = 50,
         batch_size: int = 1,
+        lr: float = 1e-3,
         devices: int = 1,
         num_workers: int = 0,  # avoid copy overhead between subprocesses
         shuffle: bool = True,
@@ -31,6 +32,7 @@ class CrossValidationTrainer:
         self.num_fold = num_fold
         self.max_epochs = max_epochs
         self.batch_size = batch_size
+        self.lr = lr
         self.devices = devices
         self.num_workers = num_workers
         self.shuffle = shuffle
@@ -55,6 +57,7 @@ class CrossValidationTrainer:
             "num_fold": self.num_fold,
             "max_epochs": self.max_epochs,
             "batch_size": self.batch_size,
+            "lr": self.lr,
             "devices": self.devices,
             "num_workers": self.num_workers,
             "shuffle": self.shuffle,
@@ -98,8 +101,7 @@ class CrossValidationTrainer:
         # 各foldでモデルを新規作成（重みを初期化）
         # devices数に応じてlrをスケール（linear scaling rule）
         model_kwargs = dict(self.model_kwargs)
-        base_lr = model_kwargs.pop("lr", 1e-3)
-        model = self.model_class(lr=base_lr * self.devices, **model_kwargs)
+        model = self.model_class(lr=self.lr * self.devices, **model_kwargs)
 
         train_dataset = torch.utils.data.Subset(self.dataset, train_idx)
         val_dataset = torch.utils.data.Subset(self.dataset, val_idx)
