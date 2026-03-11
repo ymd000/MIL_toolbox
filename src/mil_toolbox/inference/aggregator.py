@@ -1,5 +1,6 @@
 """Slide-level embedding computation from patch embeddings and attention."""
 
+from datetime import datetime
 from pathlib import Path
 
 import h5py
@@ -7,6 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+import yaml
 
 from .predictor import MILPredictor
 
@@ -44,6 +46,7 @@ class SlideEmbeddingCalculator:
         version: int | str = "latest",
         device: str = "auto",
         mil_model_name: str | None = None,
+        inference_output_dir: str | Path | None = None,
     ):
         """Initialize the calculator.
 
@@ -55,6 +58,8 @@ class SlideEmbeddingCalculator:
             device: Device to use ("auto", "cuda", "cpu")
             mil_model_name: MILモデルのアーキテクチャ名 (e.g., "abmil").
                             If None, extracted from model_config.
+            inference_output_dir: 推論結果のベースディレクトリ。指定時は trainの
+                                  version_X 名と同期したサブディレクトリを作成する。
         """
         self.predictor = MILPredictor(
             model_class=model_class,
@@ -72,6 +77,30 @@ class SlideEmbeddingCalculator:
             self.mil_model_name = model_kwargs["model_config"].split(".")[0]
         else:
             self.mil_model_name = "mil"
+
+        # trainのversion_X名に同期した推論出力ディレクトリを作成
+        if inference_output_dir is not None:
+            train_version_name = self.predictor.output_dir.name  # e.g., "version_0"
+            self.inference_version_dir = Path(inference_output_dir) / train_version_name
+            self.inference_version_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Inference output directory: {self.inference_version_dir}")
+        else:
+            self.inference_version_dir = None
+
+    def _save_inference_config(self, method: str, **kwargs) -> None:
+        """inference_version_dir に config.yaml を保存する。"""
+        if self.inference_version_dir is None:
+            return
+        config = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "train_version_dir": str(self.predictor.output_dir),
+            "mil_model_name": self.mil_model_name,
+            "method": method,
+            **kwargs,
+        }
+        config_path = self.inference_version_dir / "config.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
 
     def load_models(self, checkpoint_name: str = "best") -> None:
         """Load models from all folds.
@@ -545,6 +574,15 @@ class SlideEmbeddingCalculator:
         """
         if method is None:
             method = self.mil_model_name
+
+        self._save_inference_config(
+            method=method,
+            use_val_fold=use_val_fold,
+            normalize=normalize,
+            save_attention=save_attention,
+            save_prediction=save_prediction,
+            threshold_quantile=threshold_quantile,
+        )
 
         compute_fn = self._resolve_compute_fn(method, threshold_quantile)
         is_model_free = method in _MODEL_FREE_METHODS
