@@ -69,7 +69,7 @@ class SlideEmbeddingCalculator:
             device=device,
         )
 
-        # Extract MIL model name for HDF5 group prefix
+        # Extract MIL model name and encoder name for HDF5 group prefix
         if mil_model_name is not None:
             self.mil_model_name = mil_model_name
         elif "model_config" in model_kwargs:
@@ -77,6 +77,12 @@ class SlideEmbeddingCalculator:
             self.mil_model_name = model_kwargs["model_config"].split(".")[0]
         else:
             self.mil_model_name = "mil"
+
+        if "model_config" in model_kwargs:
+            # Extract encoder name from model_config (e.g., "abmil.base.gigapath.none" -> "gigapath")
+            self.encoder_name = model_kwargs["model_config"].split(".")[2]
+        else:
+            self.encoder_name = "unknown"
 
         # trainのversion_X名に同期した推論出力ディレクトリを作成
         if inference_output_dir is not None:
@@ -705,10 +711,11 @@ class SlideEmbeddingCalculator:
         probabilities: np.ndarray | None = None,
         method_name: str | None = None,
         selected_index: int | None = None,
+        encoder_name: str | None = None,
     ) -> None:
         """Save slide embedding to existing HDF5 file.
 
-        Saves under 'slide_embedding/{method_name}/' group.
+        Saves under '{encoder_name}/slide_embedding/{method_name}/' group.
 
         Args:
             h5_path: Path to the HDF5 file
@@ -718,11 +725,14 @@ class SlideEmbeddingCalculator:
             probabilities: Prediction probabilities (optional)
             method_name: Method name for group path. If None, uses self.mil_model_name.
             selected_index: Index of the selected patch (optional)
+            encoder_name: Encoder name for group path. If None, uses self.encoder_name.
         """
         if method_name is None:
             method_name = self.mil_model_name
+        if encoder_name is None:
+            encoder_name = self.encoder_name
 
-        group_path = f"slide_embedding/{method_name}"
+        group_path = f"{encoder_name}/slide_embedding/{method_name}"
 
         with h5py.File(h5_path, "a") as f:
             if group_path in f:
@@ -747,18 +757,20 @@ class SlideEmbeddingCalculator:
     def load_from_hdf5(
         h5_path: str | Path,
         method_name: str,
+        encoder_name: str,
     ) -> dict:
         """Load slide embedding from HDF5 file.
 
         Args:
             h5_path: Path to the HDF5 file
             method_name: Method name used when saving (e.g., "abmil", "abmil_top")
+            encoder_name: Encoder name used when saving (e.g., "uni", "gigapath")
 
         Returns:
             dict with keys: embedding, attention (if exists), prediction, probabilities,
                             selected_index (if exists)
         """
-        group_path = f"slide_embedding/{method_name}"
+        group_path = f"{encoder_name}/slide_embedding/{method_name}"
 
         with h5py.File(h5_path, "r") as f:
             if group_path not in f:
@@ -786,6 +798,7 @@ class SlideEmbeddingCalculator:
         data_dir: str | Path,
         method_name: str,
         csv_path: str | Path,
+        encoder_name: str,
     ) -> dict:
         """Load slide embeddings for all samples from HDF5 files.
 
@@ -793,6 +806,7 @@ class SlideEmbeddingCalculator:
             data_dir: Directory containing HDF5 files
             method_name: Method name used when saving (e.g., "abmil", "abmil_top")
             csv_path: Path to CSV file with case_id and label columns
+            encoder_name: Encoder name used when saving (e.g., "uni", "gigapath")
 
         Returns:
             dict with keys:
@@ -825,7 +839,7 @@ class SlideEmbeddingCalculator:
                 continue
 
             try:
-                data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), method_name)
+                data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), method_name, encoder_name)
             except KeyError:
                 print(f"Warning: No slide embedding for {case_id}, skipping.")
                 continue

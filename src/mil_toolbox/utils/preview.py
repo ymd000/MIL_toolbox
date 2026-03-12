@@ -137,7 +137,7 @@ def generate_attention_previews_from_dir(
     preview_dir = output_dir / f"preview_{method_name}"
     preview_dir.mkdir(parents=True, exist_ok=True)
 
-    group_path = f"slide_embedding/{method_name}"
+    group_path = f"{encoder_name}/slide_embedding/{method_name}"
     previewer = PreviewAttention(size=preview_size, model_name=encoder_name)
     df = pd.read_csv(csv_path)
 
@@ -297,7 +297,7 @@ def save_selected_patches(
     patch_dir = select_dir / f"{method_name}"
     patch_dir.mkdir(parents=True, exist_ok=True)
 
-    group_path = f"slide_embedding/{method_name}"
+    group_path = f"{encoder_name}/slide_embedding/{method_name}"
     df = pd.read_csv(csv_path)
 
     for _, row in df.iterrows():

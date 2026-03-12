@@ -214,7 +214,7 @@ def main():
 
     print("\n--- First HDF5 file ---")
     for name in hdf5_names:
-        data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), name)
+        data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), name, encoder_name)
         parts = [f"embedding={data['embedding'].shape}"]
         if "attention" in data:
             parts.append(f"attention={data['attention'].shape}")
@@ -227,7 +227,7 @@ def main():
     print("\n--- All HDF5 files ---")
     for name in hdf5_names:
         loaded = SlideEmbeddingCalculator.load_dataset_embeddings(
-            data_dir, name, csv_path
+            data_dir, name, csv_path, encoder_name
         )
         print(f"  load_dataset_embeddings({name}): {loaded['embeddings'].shape}")
 
