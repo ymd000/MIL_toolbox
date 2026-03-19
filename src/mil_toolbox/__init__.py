@@ -6,6 +6,7 @@ from .train import CrossValidationTrainer
 from .inference import (
     MILPredictor,
     SlideEmbeddingCalculator,
+    TITANAggregator,
 )
 
 __version__ = "0.0.1"
@@ -26,4 +27,5 @@ __all__ = [
     # Inference
     "MILPredictor",
     "SlideEmbeddingCalculator",
+    "TITANAggregator",
 ]
