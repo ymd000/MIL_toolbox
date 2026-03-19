@@ -29,7 +29,7 @@ class TITANAggregator:
                     local_files_only=True,
                 )
 
-        aggregator = MyTITAN(patch_size_lv0=512, encoder_name="conch15")
+        aggregator = MyTITAN(patch_size_lv0=512, encoder_name="conch15_768")
         aggregator.load_model()
         results = aggregator.compute_and_save(dataset)
 
@@ -47,7 +47,7 @@ class TITANAggregator:
     def __init__(
         self,
         patch_size_lv0: int,
-        encoder_name: str = "conch15",
+        encoder_name: str = "conch15_768",
         device: str = "auto",
         method_name: str = "titan",
     ):

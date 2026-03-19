@@ -12,7 +12,7 @@ FEATURE_DIMS = {
     "uni2": 1536,
     "gigapath": 1536,
     "virchow2": 2560,
-    "conch15": 768,
+    "conch15_768": 768,
 }
 
 class WSIDataset(Dataset):
