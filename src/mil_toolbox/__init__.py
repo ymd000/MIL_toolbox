@@ -1,7 +1,7 @@
 """MIL Toolbox - Multiple Instance Learning training and visualization toolkit."""
 
-from .data import FoldManager, FoldInfo, WSIDataset, DummyWSIDataset, MILDataModule
-from .models import MILModel
+from .data import FoldManager, FoldInfo, WSIDataset, DummyWSIDataset, EmbeddingDataset, MILDataModule
+from .models import MILModel, LinearProbeModel
 from .train import CrossValidationTrainer
 from .inference import (
     MILPredictor,
@@ -16,9 +16,11 @@ __all__ = [
     "FoldInfo",
     "WSIDataset",
     "DummyWSIDataset",
+    "EmbeddingDataset",
     "MILDataModule",
     # Models
     "MILModel",
+    "LinearProbeModel",
     # Training
     "CrossValidationTrainer",
     # Inference

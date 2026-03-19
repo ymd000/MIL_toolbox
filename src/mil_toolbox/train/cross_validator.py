@@ -7,7 +7,7 @@ import lightning as L
 from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 
-from mil_toolbox.data import FoldManager, mil_collate_fn
+from mil_toolbox.data import FoldManager, mil_collate_fn as _default_collate
 
 
 class CrossValidationTrainer:
@@ -24,7 +24,9 @@ class CrossValidationTrainer:
         devices: int = 1,
         num_workers: int = 0,  # avoid copy overhead between subprocesses
         shuffle: bool = True,
-        random_state: int = 42
+        random_state: int = 42,
+        collate_fn=_default_collate,
+        existing_fold_dir: str | Path | None = None,
     ):
         self.model_class = model_class
         self.model_kwargs = model_kwargs
@@ -38,6 +40,8 @@ class CrossValidationTrainer:
         self.shuffle = shuffle
         self.random_state = random_state
         self.base_output_dir = Path(output_dir)
+        self.collate_fn = collate_fn
+        self.existing_fold_dir = Path(existing_fold_dir) if existing_fold_dir else None
 
     def _get_version_dir(self) -> Path:
         """次のversion_Xディレクトリを決定して返す"""
@@ -64,6 +68,8 @@ class CrossValidationTrainer:
             "random_state": self.random_state,
             "model_class": self.model_class.__name__,
             "model_kwargs": self.model_kwargs,
+            "collate_fn": self.collate_fn.__name__ if self.collate_fn else "default",
+            "existing_fold_dir": str(self.existing_fold_dir) if self.existing_fold_dir else None,
         }
         with open(version_dir / "config.yaml", "w") as f:
             yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
@@ -78,13 +84,21 @@ class CrossValidationTrainer:
         self.fold_manager = FoldManager(version_dir)
 
         # fold作成・保存
-        self.fold_manager.create_folds(
-            self.dataset,
-            self.num_fold,
-            self.shuffle,
-            self.random_state
-        )
-        self.fold_manager.save()
+        if self.existing_fold_dir is not None:
+            src_manager = FoldManager(self.existing_fold_dir)
+            src_manager.load()
+            self.fold_manager.folds = src_manager.folds
+            self.fold_manager.num_folds = src_manager.num_folds
+            self.fold_manager.save()  # version_dir にコピー保存
+            print(f"Reusing fold splits from: {self.existing_fold_dir}")
+        else:
+            self.fold_manager.create_folds(
+                self.dataset,
+                self.num_fold,
+                self.shuffle,
+                self.random_state
+            )
+            self.fold_manager.save()
 
         results = []
         for fold_info in self.fold_manager.folds:
@@ -110,11 +124,11 @@ class CrossValidationTrainer:
 
         train_dataloader = DataLoader(
             train_dataset, batch_size=self.batch_size, shuffle=True,
-            num_workers=self.num_workers, collate_fn=mil_collate_fn
+            num_workers=self.num_workers, collate_fn=self.collate_fn
         )
         val_dataloader = DataLoader(
             val_dataset, batch_size=self.batch_size, shuffle=False,
-            num_workers=self.num_workers, collate_fn=mil_collate_fn
+            num_workers=self.num_workers, collate_fn=self.collate_fn
         )
 
         # fold毎のディレクトリ
