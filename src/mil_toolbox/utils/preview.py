@@ -109,11 +109,12 @@ def generate_attention_previews_from_dir(
     method_name: str,
     output_dir: str | Path,
     encoder_name: str = "uni",
+    src_encoder_name: str | None = None,
     preview_size: int = 64,
 ) -> None:
     """Attentionプレビュー画像を生成する（H5とNDPIが別ディレクトリの場合）。
 
-    embed_h5_dir/{case_id}.h5 の slide_embedding/{method_name}/attention から
+    embed_h5_dir/{case_id}.h5 の {encoder_name}/slide_embedding/{method_name}/attention から
     attention スコアを読み、src_h5_dir/{case_id}.h5 をベースにプレビューを生成する。
     src_h5_dir には対応する NDPI ファイルが置かれている必要がある
     （BasePreviewCommand が同ディレクトリから自動探索するため）。
@@ -124,12 +125,18 @@ def generate_attention_previews_from_dir(
         src_h5_dir: 座標・NDPI ファイルがある HDF5 ディレクトリ
         method_name: メソッド名 (例: "abmil", "abmil_top")
         output_dir: プレビュー画像の保存ディレクトリ
-        encoder_name: エンコーダ名 (例: "uni", "gigapath")
+        encoder_name: embed_h5 のエンコーダ名。HDF5パス {encoder_name}/slide_embedding/... に使用
+        src_encoder_name: src_h5 の座標読み出しに使うエンコーダ名。
+                          None の場合は encoder_name と同じ値を使用。
+                          src_h5_dir のH5が別エンコーダで処理されている場合に指定する。
         preview_size: プレビューのパッチサイズ
     """
     print("\n" + "=" * 50)
     print(f"Generating Attention Previews: {method_name}")
     print("=" * 50)
+
+    if src_encoder_name is None:
+        src_encoder_name = encoder_name
 
     embed_h5_dir = Path(embed_h5_dir)
     src_h5_dir = Path(src_h5_dir)
@@ -138,7 +145,7 @@ def generate_attention_previews_from_dir(
     preview_dir.mkdir(parents=True, exist_ok=True)
 
     group_path = f"{encoder_name}/slide_embedding/{method_name}"
-    previewer = PreviewAttention(size=preview_size, model_name=encoder_name)
+    previewer = PreviewAttention(size=preview_size, model_name=src_encoder_name)
     df = pd.read_csv(csv_path)
 
     for _, row in df.iterrows():
