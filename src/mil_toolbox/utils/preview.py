@@ -137,7 +137,7 @@ def generate_attention_previews_from_dir(
     preview_dir = output_dir / f"preview_{method_name}"
     preview_dir.mkdir(parents=True, exist_ok=True)
 
-    group_path = f"slide_embedding/{method_name}"
+    group_path = f"{encoder_name}/slide_embedding/{method_name}"
     previewer = PreviewAttention(size=preview_size, model_name=encoder_name)
     df = pd.read_csv(csv_path)
 
@@ -175,6 +175,7 @@ def save_selected_patch_images(
     data: dict,
     method_name: str,
     output_dir: str | Path,
+    encoder_name: str,
     patch_size: int = 256,
     ndpi_dir: str | Path | None = None,
 ) -> None:
@@ -193,6 +194,7 @@ def save_selected_patch_images(
         method_name: Method name used when saving embeddings
                      (e.g., "nearest_cosine", "abmil_top")
         output_dir: Directory to save patch images
+        encoder_name: エンコーダ名 (e.g., "uni", "uni2") — HDF5パスのプレフィックス
         patch_size: Patch size used in wsi_toolbox cache
         ndpi_dir: Directory containing NDPI files. Files are matched to cases
                   by stem (i.e. ``{case_id}.ndpi``). Used when H5 cache is
@@ -212,7 +214,7 @@ def save_selected_patch_images(
         for ndpi_path in Path(ndpi_dir).glob("*.ndpi"):
             ndpi_map[ndpi_path.stem] = ndpi_path
 
-    group_path = f"slide_embedding/{method_name}"
+    group_path = f"{encoder_name}/slide_embedding/{method_name}"
     cache_patches_path = f"cache/{patch_size}/patches"
     cache_coords_path = f"cache/{patch_size}/coordinates"
 
@@ -297,7 +299,7 @@ def save_selected_patches(
     patch_dir = select_dir / f"{method_name}"
     patch_dir.mkdir(parents=True, exist_ok=True)
 
-    group_path = f"slide_embedding/{method_name}"
+    group_path = f"{encoder_name}/slide_embedding/{method_name}"
     df = pd.read_csv(csv_path)
 
     for _, row in df.iterrows():
