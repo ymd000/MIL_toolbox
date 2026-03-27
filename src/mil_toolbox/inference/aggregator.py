@@ -44,6 +44,7 @@ class SlideEmbeddingCalculator:
         version: int | str = "latest",
         device: str = "auto",
         mil_model_name: str | None = None,
+        encoder_name: str | None = None,
     ):
         """Initialize the calculator.
 
@@ -55,6 +56,9 @@ class SlideEmbeddingCalculator:
             device: Device to use ("auto", "cuda", "cpu")
             mil_model_name: MILモデルのアーキテクチャ名 (e.g., "abmil").
                             If None, extracted from model_config.
+            encoder_name: HDF5保存パスのプレフィックス (e.g., "uni2").
+                          指定時は {encoder_name}/slide_embedding/{method} に保存。
+                          None の場合は slide_embedding/{method} に保存。
         """
         self.predictor = MILPredictor(
             model_class=model_class,
@@ -72,6 +76,8 @@ class SlideEmbeddingCalculator:
             self.mil_model_name = model_kwargs["model_config"].split(".")[0]
         else:
             self.mil_model_name = "mil"
+
+        self.encoder_name = encoder_name
 
     def load_models(self, checkpoint_name: str = "best") -> None:
         """Load models from all folds.
@@ -684,7 +690,10 @@ class SlideEmbeddingCalculator:
         if method_name is None:
             method_name = self.mil_model_name
 
-        group_path = f"slide_embedding/{method_name}"
+        if self.encoder_name is not None:
+            group_path = f"{self.encoder_name}/slide_embedding/{method_name}"
+        else:
+            group_path = f"slide_embedding/{method_name}"
 
         with h5py.File(h5_path, "a") as f:
             if group_path in f:
@@ -709,18 +718,24 @@ class SlideEmbeddingCalculator:
     def load_from_hdf5(
         h5_path: str | Path,
         method_name: str,
+        encoder_name: str | None = None,
     ) -> dict:
         """Load slide embedding from HDF5 file.
 
         Args:
             h5_path: Path to the HDF5 file
             method_name: Method name used when saving (e.g., "abmil", "abmil_top")
+            encoder_name: HDF5パスのプレフィックス (e.g., "uni2").
+                          指定時は {encoder_name}/slide_embedding/{method_name} から読み込む。
 
         Returns:
             dict with keys: embedding, attention (if exists), prediction, probabilities,
                             selected_index (if exists)
         """
-        group_path = f"slide_embedding/{method_name}"
+        if encoder_name is not None:
+            group_path = f"{encoder_name}/slide_embedding/{method_name}"
+        else:
+            group_path = f"slide_embedding/{method_name}"
 
         with h5py.File(h5_path, "r") as f:
             if group_path not in f:
@@ -748,6 +763,7 @@ class SlideEmbeddingCalculator:
         data_dir: str | Path,
         method_name: str,
         csv_path: str | Path,
+        encoder_name: str | None = None,
     ) -> dict:
         """Load slide embeddings for all samples from HDF5 files.
 
@@ -755,6 +771,8 @@ class SlideEmbeddingCalculator:
             data_dir: Directory containing HDF5 files
             method_name: Method name used when saving (e.g., "abmil", "abmil_top")
             csv_path: Path to CSV file with case_id and label columns
+            encoder_name: HDF5パスのプレフィックス (e.g., "uni2").
+                          指定時は {encoder_name}/slide_embedding/{method_name} から読み込む。
 
         Returns:
             dict with keys:
@@ -787,7 +805,7 @@ class SlideEmbeddingCalculator:
                 continue
 
             try:
-                data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), method_name)
+                data = SlideEmbeddingCalculator.load_from_hdf5(str(h5_path), method_name, encoder_name)
             except KeyError:
                 print(f"Warning: No slide embedding for {case_id}, skipping.")
                 continue
