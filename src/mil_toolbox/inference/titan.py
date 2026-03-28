@@ -231,7 +231,7 @@ class TITANAggregator:
 
             # overwrite=False のとき既存グループがあればスキップ
             if not overwrite:
-                group_path = f"slide_embedding/{self.method_name}"
+                group_path = f"{self.encoder_name}/slide_embedding/{self.method_name}"
                 with h5py.File(h5_path, "r") as f:
                     if group_path in f:
                         print(f"Skip (already exists): {h5_path.name}")
@@ -288,14 +288,14 @@ class TITANAggregator:
     ) -> None:
         """スライドレベル埋め込みを HDF5 ファイルに保存する。
 
-        保存パス: ``slide_embedding/{method_name}/embedding``
+        保存パス: ``{encoder_name}/slide_embedding/{method_name}/embedding``
 
         Args:
             h5_path: 保存先の HDF5 ファイルパス。
             slide_embedding: 保存するスライドレベル埋め込み配列。
             overwrite: ``False`` のとき既存グループがあればスキップする。
         """
-        group_path = f"slide_embedding/{self.method_name}"
+        group_path = f"{self.encoder_name}/slide_embedding/{self.method_name}"
 
         with h5py.File(h5_path, "a") as f:
             if group_path in f:
